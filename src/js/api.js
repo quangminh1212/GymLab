@@ -125,9 +125,79 @@ async function mockInvoke(cmd, args) {
                 total_volume: tVol
             };
         }
+        case 'get_personal_records': {
+            const byEx = {};
+            w.forEach(x => { (byEx[x.exercise_id] = byEx[x.exercise_id]||[]).push(x); });
+            return Object.entries(byEx).map(([eid, entries]) => {
+                const best = entries.reduce((a,b) => a.weight_kg > b.weight_kg ? a : b);
+                const maxVol = Math.max(...entries.map(e => e.sets*e.reps*e.weight_kg));
+                return { exercise_id: eid, exercise_name: best.exercise_name, max_weight: best.weight_kg, max_reps: best.reps, max_volume: maxVol, date: best.date };
+            }).sort((a,b) => b.max_weight - a.max_weight);
+        }
+        case 'get_templates': return getMockTemplates();
+        case 'save_template': {
+            const tpls = getMockTemplates();
+            const exDb = EXERCISE_DB;
+            const exercises = args.exercise_ids.map((eid, i) => {
+                const ex = exDb.find(e => e.id === eid);
+                return { exercise_id: eid, exercise_name: ex?ex.name_vi:eid, sets: (args.sets_list||[])[i]||3, reps: (args.reps_list||[])[i]||10, weight_kg: (args.weights||[])[i]||0 };
+            });
+            const tpl = { id: crypto.randomUUID(), name: args.name, exercises, created_at: now.toISOString() };
+            tpls.push(tpl); saveMockTemplates(tpls); return tpl;
+        }
+        case 'delete_template': {
+            const tpls = getMockTemplates().filter(t => t.id !== args.id);
+            saveMockTemplates(tpls); return true;
+        }
+        case 'relog_from_template': {
+            const tpl = getMockTemplates().find(t => t.id === args.template_id);
+            if (!tpl) return [];
+            const wt = s.body_weight || 70;
+            return tpl.exercises.map(ex => {
+                const met = MET_DB[ex.exercise_id]||5;
+                const dur = (ex.sets*ex.reps*3+(ex.sets-1)*60)/3600;
+                const cal = met*wt*dur;
+                return { id: crypto.randomUUID(), exercise_id: ex.exercise_id, exercise_name: ex.exercise_name, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg, duration_minutes: 0, date: now.toISOString(), calories_burned: cal, met_value: met, notes: null };
+            });
+        }
+        case 'log_body_weight': {
+            const log = getMockBWLog();
+            const entry = { date: now.toISOString(), weight: args.weight };
+            log.push(entry); saveMockBWLog(log); return entry;
+        }
+        case 'get_body_weight_history': {
+            const log = getMockBWLog();
+            const cutoff = new Date(now); cutoff.setDate(cutoff.getDate()-args.days);
+            return log.filter(e => new Date(e.date) > cutoff).sort((a,b) => new Date(a.date)-new Date(b.date));
+        }
+        case 'get_exercise_progress': {
+            return w.filter(x => x.exercise_id === args.exercise_id).map(x => ({
+                date: x.date, weight: x.weight_kg, reps: x.reps, volume: x.sets*x.reps*x.weight_kg, sets: x.sets
+            }));
+        }
+        case 'quick_relog': {
+            const orig = w.find(x => x.id === args.workout_id);
+            if (!orig) return null;
+            const wt = s.body_weight || 70;
+            const met = MET_DB[orig.exercise_id]||5;
+            const dur = orig.duration_minutes > 0 ? orig.duration_minutes/60 : (orig.sets*orig.reps*3+(orig.sets-1)*60)/3600;
+            const cal = met*wt*dur;
+            const entry = { id: crypto.randomUUID(), exercise_id: orig.exercise_id, exercise_name: orig.exercise_name, sets: orig.sets, reps: orig.reps, weight_kg: orig.weight_kg, duration_minutes: orig.duration_minutes, date: now.toISOString(), calories_burned: cal, met_value: met, notes: 'Re-log' };
+            w.push(entry); saveMockWorkouts(w); return entry;
+        }
         default: return null;
     }
 }
+
+// ── Additional mock storage for new features ──
+const MOCK_TEMPLATES = 'gymlab_templates';
+const MOCK_BW_LOG = 'gymlab_bw_log';
+const MOCK_PR = 'gymlab_pr';
+
+function getMockTemplates() { try { return JSON.parse(localStorage.getItem(MOCK_TEMPLATES)||'[]'); } catch { return []; } }
+function saveMockTemplates(t) { localStorage.setItem(MOCK_TEMPLATES, JSON.stringify(t)); }
+function getMockBWLog() { try { return JSON.parse(localStorage.getItem(MOCK_BW_LOG)||'[]'); } catch { return []; } }
+function saveMockBWLog(l) { localStorage.setItem(MOCK_BW_LOG, JSON.stringify(l)); }
 
 // ── Exercise DB (same as Rust backend) ──
 const EXERCISE_DB = [

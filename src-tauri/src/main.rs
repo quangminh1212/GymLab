@@ -58,12 +58,58 @@ pub struct StatsOverview {
     pub total_volume: f64,
 }
 
+// ─── Additional Data Models ───
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonalRecord {
+    pub exercise_id: String,
+    pub exercise_name: String,
+    pub max_weight: f64,
+    pub max_reps: i32,
+    pub max_volume: f64,
+    pub date: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkoutTemplate {
+    pub id: String,
+    pub name: String,
+    pub exercises: Vec<TemplateExercise>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateExercise {
+    pub exercise_id: String,
+    pub exercise_name: String,
+    pub sets: i32,
+    pub reps: i32,
+    pub weight_kg: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BodyWeightEntry {
+    pub date: DateTime<Utc>,
+    pub weight: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExerciseProgress {
+    pub date: DateTime<Utc>,
+    pub weight: f64,
+    pub reps: i32,
+    pub volume: f64,
+    pub sets: i32,
+}
+
 // ─── App State ───
 
 pub struct AppState {
     pub workouts: Mutex<Vec<WorkoutEntry>>,
     pub body_weight: Mutex<f64>,
     pub user_name: Mutex<String>,
+    pub templates: Mutex<Vec<WorkoutTemplate>>,
+    pub body_weight_log: Mutex<Vec<BodyWeightEntry>>,
     pub data_path: PathBuf,
 }
 
@@ -351,6 +397,14 @@ fn settings_file_path(app_dir: &Path) -> PathBuf {
     app_dir.join("settings.json")
 }
 
+fn templates_file_path(app_dir: &Path) -> PathBuf {
+    app_dir.join("templates.json")
+}
+
+fn body_weight_log_file_path(app_dir: &Path) -> PathBuf {
+    app_dir.join("body_weight_log.json")
+}
+
 #[derive(Serialize, Deserialize)]
 struct Settings {
     body_weight: f64,
@@ -605,6 +659,254 @@ fn preview_calories(
     calculate_calories(&exercise_id, weight, sets, reps, duration_minutes)
 }
 
+// ─── Personal Records ───
+
+#[tauri::command]
+fn get_personal_records(state: State<'_, AppState>) -> Vec<PersonalRecord> {
+    let workouts = state.workouts.lock().unwrap();
+    let mut records: Vec<PersonalRecord> = Vec::new();
+
+    let mut by_exercise: std::collections::HashMap<String, Vec<&WorkoutEntry>> =
+        std::collections::HashMap::new();
+    for w in workouts.iter() {
+        by_exercise
+            .entry(w.exercise_id.clone())
+            .or_default()
+            .push(w);
+    }
+
+    for (eid, entries) in by_exercise {
+        let best = entries
+            .iter()
+            .max_by(|a, b| a.weight_kg.partial_cmp(&b.weight_kg).unwrap())
+            .unwrap();
+        let max_vol = entries
+            .iter()
+            .map(|e| e.sets as f64 * e.reps as f64 * e.weight_kg)
+            .fold(0.0f64, f64::max);
+
+        records.push(PersonalRecord {
+            exercise_id: eid.clone(),
+            exercise_name: best.exercise_name.clone(),
+            max_weight: best.weight_kg,
+            max_reps: best.reps,
+            max_volume: max_vol,
+            date: best.date,
+        });
+    }
+
+    records.sort_by(|a, b| b.max_weight.partial_cmp(&a.max_weight).unwrap());
+    records
+}
+
+// ─── Workout Templates ───
+
+fn load_templates(path: &Path) -> Vec<WorkoutTemplate> {
+    if let Ok(data) = fs::read_to_string(path) {
+        serde_json::from_str(&data).unwrap_or_default()
+    } else {
+        vec![]
+    }
+}
+
+fn save_templates(path: &Path, templates: &[WorkoutTemplate]) {
+    if let Ok(data) = serde_json::to_string_pretty(templates) {
+        let _ = fs::write(path, data);
+    }
+}
+
+#[tauri::command]
+fn get_templates(state: State<'_, AppState>) -> Vec<WorkoutTemplate> {
+    state.templates.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn save_template(
+    state: State<'_, AppState>,
+    name: String,
+    exercise_ids: Vec<String>,
+    sets_list: Vec<i32>,
+    reps_list: Vec<i32>,
+    weights: Vec<f64>,
+) -> WorkoutTemplate {
+    let exercises_db = get_exercise_db();
+    let exercises: Vec<TemplateExercise> = exercise_ids
+        .iter()
+        .enumerate()
+        .map(|(i, eid)| {
+            let ex = exercises_db.iter().find(|e| e.id == *eid);
+            TemplateExercise {
+                exercise_id: eid.clone(),
+                exercise_name: ex.map(|e| e.name_vi.clone()).unwrap_or_default(),
+                sets: sets_list.get(i).copied().unwrap_or(3),
+                reps: reps_list.get(i).copied().unwrap_or(10),
+                weight_kg: weights.get(i).copied().unwrap_or(0.0),
+            }
+        })
+        .collect();
+
+    let template = WorkoutTemplate {
+        id: uuid::Uuid::new_v4().to_string(),
+        name,
+        exercises,
+        created_at: Utc::now(),
+    };
+
+    let mut templates = state.templates.lock().unwrap();
+    templates.push(template.clone());
+    let path = state.data_path.parent().unwrap().join("templates.json");
+    save_templates(&path, &templates);
+    template
+}
+
+#[tauri::command]
+fn delete_template(state: State<'_, AppState>, id: String) -> bool {
+    let mut templates = state.templates.lock().unwrap();
+    let len_before = templates.len();
+    templates.retain(|t| t.id != id);
+    let changed = templates.len() < len_before;
+    if changed {
+        let path = state.data_path.parent().unwrap().join("templates.json");
+        save_templates(&path, &templates);
+    }
+    changed
+}
+
+#[tauri::command]
+fn relog_from_template(state: State<'_, AppState>, template_id: String) -> Vec<WorkoutEntry> {
+    let templates = state.templates.lock().unwrap();
+    let template = match templates.iter().find(|t| t.id == template_id) {
+        Some(t) => t.clone(),
+        None => return vec![],
+    };
+    drop(templates);
+
+    let weight = *state.body_weight.lock().unwrap();
+    let mut new_entries = Vec::new();
+
+    for ex in &template.exercises {
+        let calories = calculate_calories(&ex.exercise_id, weight, ex.sets, ex.reps, 0.0);
+        let entry = WorkoutEntry {
+            id: uuid::Uuid::new_v4().to_string(),
+            exercise_id: ex.exercise_id.clone(),
+            exercise_name: ex.exercise_name.clone(),
+            sets: ex.sets,
+            reps: ex.reps,
+            weight_kg: ex.weight_kg,
+            duration_minutes: 0.0,
+            date: Utc::now(),
+            calories_burned: calories,
+            met_value: 6.0,
+            notes: None,
+        };
+        new_entries.push(entry);
+    }
+
+    let mut workouts = state.workouts.lock().unwrap();
+    workouts.extend(new_entries.clone());
+    save_workouts(&state.data_path, &workouts);
+    new_entries
+}
+
+// ─── Body Weight Log ───
+
+fn load_body_weight_log(path: &Path) -> Vec<BodyWeightEntry> {
+    if let Ok(data) = fs::read_to_string(path) {
+        serde_json::from_str(&data).unwrap_or_default()
+    } else {
+        vec![]
+    }
+}
+
+fn save_body_weight_log(path: &Path, log: &[BodyWeightEntry]) {
+    if let Ok(data) = serde_json::to_string_pretty(log) {
+        let _ = fs::write(path, data);
+    }
+}
+
+#[tauri::command]
+fn log_body_weight(state: State<'_, AppState>, weight: f64) -> BodyWeightEntry {
+    let entry = BodyWeightEntry {
+        date: Utc::now(),
+        weight,
+    };
+    let mut log = state.body_weight_log.lock().unwrap();
+    log.push(entry.clone());
+    let path = state
+        .data_path
+        .parent()
+        .unwrap()
+        .join("body_weight_log.json");
+    save_body_weight_log(&path, &log);
+    entry
+}
+
+#[tauri::command]
+fn get_body_weight_history(state: State<'_, AppState>, days: i32) -> Vec<BodyWeightEntry> {
+    let log = state.body_weight_log.lock().unwrap();
+    let cutoff = Utc::now() - chrono::Duration::days(days as i64);
+    let mut entries: Vec<BodyWeightEntry> =
+        log.iter().filter(|e| e.date > cutoff).cloned().collect();
+    entries.sort_by_key(|e| e.date);
+    entries
+}
+
+// ─── Exercise Progress ───
+
+#[tauri::command]
+fn get_exercise_progress(state: State<'_, AppState>, exercise_id: String) -> Vec<ExerciseProgress> {
+    let workouts = state.workouts.lock().unwrap();
+    let entries: Vec<ExerciseProgress> = workouts
+        .iter()
+        .filter(|w| w.exercise_id == exercise_id)
+        .map(|w| ExerciseProgress {
+            date: w.date,
+            weight: w.weight_kg,
+            reps: w.reps,
+            volume: w.sets as f64 * w.reps as f64 * w.weight_kg,
+            sets: w.sets,
+        })
+        .collect();
+    entries
+}
+
+// ─── Quick Re-log ───
+
+#[tauri::command]
+fn quick_relog(state: State<'_, AppState>, workout_id: String) -> Option<WorkoutEntry> {
+    let workouts = state.workouts.lock().unwrap();
+    let original = workouts.iter().find(|w| w.id == workout_id)?.clone();
+    drop(workouts);
+
+    let weight = *state.body_weight.lock().unwrap();
+    let calories = calculate_calories(
+        &original.exercise_id,
+        weight,
+        original.sets,
+        original.reps,
+        original.duration_minutes,
+    );
+
+    let new_entry = WorkoutEntry {
+        id: uuid::Uuid::new_v4().to_string(),
+        exercise_id: original.exercise_id,
+        exercise_name: original.exercise_name,
+        sets: original.sets,
+        reps: original.reps,
+        weight_kg: original.weight_kg,
+        duration_minutes: original.duration_minutes,
+        date: Utc::now(),
+        calories_burned: calories,
+        met_value: original.met_value,
+        notes: Some(format!("Re-log from {}", original.date.format("%d/%m/%Y"))),
+    };
+
+    let mut workouts = state.workouts.lock().unwrap();
+    workouts.push(new_entry.clone());
+    save_workouts(&state.data_path, &workouts);
+    Some(new_entry)
+}
+
 // ─── Main ───
 
 fn main() {
@@ -619,13 +921,19 @@ fn main() {
 
             let workouts_path = data_file_path(&data_dir);
             let settings_path = settings_file_path(&data_dir);
+            let templates_path = templates_file_path(&data_dir);
+            let bw_log_path = body_weight_log_file_path(&data_dir);
             let settings = load_settings(&settings_path);
             let workouts = load_workouts(&workouts_path);
+            let templates = load_templates(&templates_path);
+            let body_weight_log = load_body_weight_log(&bw_log_path);
 
             app.manage(AppState {
                 workouts: Mutex::new(workouts),
                 body_weight: Mutex::new(settings.body_weight),
                 user_name: Mutex::new(settings.user_name),
+                templates: Mutex::new(templates),
+                body_weight_log: Mutex::new(body_weight_log),
                 data_path: workouts_path,
             });
 
@@ -645,6 +953,15 @@ fn main() {
             get_user_name,
             set_user_name,
             preview_calories,
+            get_personal_records,
+            get_templates,
+            save_template,
+            delete_template,
+            relog_from_template,
+            log_body_weight,
+            get_body_weight_history,
+            get_exercise_progress,
+            quick_relog,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
