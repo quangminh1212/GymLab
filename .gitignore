@@ -7,6 +7,10 @@ src-tauri/Frameworks/
 # Node
 node_modules/
 
+# Python
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store
 Thumbs.db

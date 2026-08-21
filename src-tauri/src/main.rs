@@ -1,9 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, NaiveDate};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{Manager, State};
 
@@ -72,35 +72,243 @@ pub struct AppState {
 pub fn get_exercise_db() -> Vec<Exercise> {
     vec![
         // Strength
-        Exercise { id: "bench_press".into(), name: "Bench Press".into(), name_vi: "Ép ngực".into(), met: 6.0, category: "strength".into(), muscle_group: "Ngực".into(), icon: "💪".into() },
-        Exercise { id: "squat".into(), name: "Squat".into(), name_vi: "Squat".into(), met: 6.0, category: "strength".into(), muscle_group: "Chân".into(), icon: "🦵".into() },
-        Exercise { id: "deadlift".into(), name: "Deadlift".into(), name_vi: "Cuốn đất".into(), met: 6.0, category: "strength".into(), muscle_group: "Lưng".into(), icon: "🏋️".into() },
-        Exercise { id: "overhead_press".into(), name: "Overhead Press".into(), name_vi: "Đẩy tạ".into(), met: 5.0, category: "strength".into(), muscle_group: "Vai".into(), icon: "💪".into() },
-        Exercise { id: "barbell_row".into(), name: "Barbell Row".into(), name_vi: "Kéo tạ".into(), met: 5.0, category: "strength".into(), muscle_group: "Lưng".into(), icon: "🏋️".into() },
-        Exercise { id: "bicep_curl".into(), name: "Bicep Curl".into(), name_vi: "Cuốn tay".into(), met: 3.5, category: "strength".into(), muscle_group: "Tay".into(), icon: "💪".into() },
-        Exercise { id: "tricep_dip".into(), name: "Tricep Dip".into(), name_vi: "Chùn tay".into(), met: 5.0, category: "strength".into(), muscle_group: "Tay".into(), icon: "💪".into() },
-        Exercise { id: "lateral_raise".into(), name: "Lateral Raise".into(), name_vi: "Nâng ngang".into(), met: 3.5, category: "strength".into(), muscle_group: "Vai".into(), icon: "💪".into() },
-        Exercise { id: "leg_press".into(), name: "Leg Press".into(), name_vi: "Đạp chân".into(), met: 5.0, category: "strength".into(), muscle_group: "Chân".into(), icon: "🦵".into() },
-        Exercise { id: "calf_raise".into(), name: "Calf Raise".into(), name_vi: "Nâng gót".into(), met: 3.5, category: "strength".into(), muscle_group: "Chân".into(), icon: "🦵".into() },
-        Exercise { id: "pull_up".into(), name: "Pull Up".into(), name_vi: "Kéo xô".into(), met: 8.0, category: "strength".into(), muscle_group: "Lưng".into(), icon: "💪".into() },
-        Exercise { id: "push_up".into(), name: "Push Up".into(), name_vi: "Hít đất".into(), met: 8.0, category: "strength".into(), muscle_group: "Ngực".into(), icon: "💪".into() },
-        Exercise { id: "plank".into(), name: "Plank".into(), name_vi: "Plank".into(), met: 4.0, category: "strength".into(), muscle_group: "Core".into(), icon: "💪".into() },
+        Exercise {
+            id: "bench_press".into(),
+            name: "Bench Press".into(),
+            name_vi: "Ép ngực".into(),
+            met: 6.0,
+            category: "strength".into(),
+            muscle_group: "Ngực".into(),
+            icon: "💪".into(),
+        },
+        Exercise {
+            id: "squat".into(),
+            name: "Squat".into(),
+            name_vi: "Squat".into(),
+            met: 6.0,
+            category: "strength".into(),
+            muscle_group: "Chân".into(),
+            icon: "🦵".into(),
+        },
+        Exercise {
+            id: "deadlift".into(),
+            name: "Deadlift".into(),
+            name_vi: "Cuốn đất".into(),
+            met: 6.0,
+            category: "strength".into(),
+            muscle_group: "Lưng".into(),
+            icon: "🏋️".into(),
+        },
+        Exercise {
+            id: "overhead_press".into(),
+            name: "Overhead Press".into(),
+            name_vi: "Đẩy tạ".into(),
+            met: 5.0,
+            category: "strength".into(),
+            muscle_group: "Vai".into(),
+            icon: "💪".into(),
+        },
+        Exercise {
+            id: "barbell_row".into(),
+            name: "Barbell Row".into(),
+            name_vi: "Kéo tạ".into(),
+            met: 5.0,
+            category: "strength".into(),
+            muscle_group: "Lưng".into(),
+            icon: "🏋️".into(),
+        },
+        Exercise {
+            id: "bicep_curl".into(),
+            name: "Bicep Curl".into(),
+            name_vi: "Cuốn tay".into(),
+            met: 3.5,
+            category: "strength".into(),
+            muscle_group: "Tay".into(),
+            icon: "💪".into(),
+        },
+        Exercise {
+            id: "tricep_dip".into(),
+            name: "Tricep Dip".into(),
+            name_vi: "Chùn tay".into(),
+            met: 5.0,
+            category: "strength".into(),
+            muscle_group: "Tay".into(),
+            icon: "💪".into(),
+        },
+        Exercise {
+            id: "lateral_raise".into(),
+            name: "Lateral Raise".into(),
+            name_vi: "Nâng ngang".into(),
+            met: 3.5,
+            category: "strength".into(),
+            muscle_group: "Vai".into(),
+            icon: "💪".into(),
+        },
+        Exercise {
+            id: "leg_press".into(),
+            name: "Leg Press".into(),
+            name_vi: "Đạp chân".into(),
+            met: 5.0,
+            category: "strength".into(),
+            muscle_group: "Chân".into(),
+            icon: "🦵".into(),
+        },
+        Exercise {
+            id: "calf_raise".into(),
+            name: "Calf Raise".into(),
+            name_vi: "Nâng gót".into(),
+            met: 3.5,
+            category: "strength".into(),
+            muscle_group: "Chân".into(),
+            icon: "🦵".into(),
+        },
+        Exercise {
+            id: "pull_up".into(),
+            name: "Pull Up".into(),
+            name_vi: "Kéo xô".into(),
+            met: 8.0,
+            category: "strength".into(),
+            muscle_group: "Lưng".into(),
+            icon: "💪".into(),
+        },
+        Exercise {
+            id: "push_up".into(),
+            name: "Push Up".into(),
+            name_vi: "Hít đất".into(),
+            met: 8.0,
+            category: "strength".into(),
+            muscle_group: "Ngực".into(),
+            icon: "💪".into(),
+        },
+        Exercise {
+            id: "plank".into(),
+            name: "Plank".into(),
+            name_vi: "Plank".into(),
+            met: 4.0,
+            category: "strength".into(),
+            muscle_group: "Core".into(),
+            icon: "💪".into(),
+        },
         // Cardio
-        Exercise { id: "running".into(), name: "Running".into(), name_vi: "Chạy bộ".into(), met: 9.8, category: "cardio".into(), muscle_group: "Toàn thân".into(), icon: "🏃".into() },
-        Exercise { id: "cycling".into(), name: "Cycling".into(), name_vi: "Đạp xe".into(), met: 7.5, category: "cardio".into(), muscle_group: "Chân".into(), icon: "🚴".into() },
-        Exercise { id: "swimming".into(), name: "Swimming".into(), name_vi: "Bơi lội".into(), met: 8.0, category: "cardio".into(), muscle_group: "Toàn thân".into(), icon: "🏊".into() },
-        Exercise { id: "jumping_rope".into(), name: "Jump Rope".into(), name_vi: "Nhảy dây".into(), met: 12.3, category: "cardio".into(), muscle_group: "Toàn thân".into(), icon: "🤸".into() },
-        Exercise { id: "rowing_machine".into(), name: "Rowing Machine".into(), name_vi: "Máy chèo".into(), met: 7.0, category: "cardio".into(), muscle_group: "Toàn thân".into(), icon: "🚣".into() },
-        Exercise { id: "stair_climbing".into(), name: "Stair Climbing".into(), name_vi: "Leo cầu thang".into(), met: 9.0, category: "cardio".into(), muscle_group: "Chân".into(), icon: "🏔️".into() },
-        Exercise { id: "elliptical".into(), name: "Elliptical".into(), name_vi: "Máy elip".into(), met: 5.0, category: "cardio".into(), muscle_group: "Toàn thân".into(), icon: "🏋️".into() },
-        Exercise { id: "walking".into(), name: "Walking".into(), name_vi: "Đi bộ".into(), met: 3.5, category: "cardio".into(), muscle_group: "Chân".into(), icon: "🚶".into() },
+        Exercise {
+            id: "running".into(),
+            name: "Running".into(),
+            name_vi: "Chạy bộ".into(),
+            met: 9.8,
+            category: "cardio".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🏃".into(),
+        },
+        Exercise {
+            id: "cycling".into(),
+            name: "Cycling".into(),
+            name_vi: "Đạp xe".into(),
+            met: 7.5,
+            category: "cardio".into(),
+            muscle_group: "Chân".into(),
+            icon: "🚴".into(),
+        },
+        Exercise {
+            id: "swimming".into(),
+            name: "Swimming".into(),
+            name_vi: "Bơi lội".into(),
+            met: 8.0,
+            category: "cardio".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🏊".into(),
+        },
+        Exercise {
+            id: "jumping_rope".into(),
+            name: "Jump Rope".into(),
+            name_vi: "Nhảy dây".into(),
+            met: 12.3,
+            category: "cardio".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🤸".into(),
+        },
+        Exercise {
+            id: "rowing_machine".into(),
+            name: "Rowing Machine".into(),
+            name_vi: "Máy chèo".into(),
+            met: 7.0,
+            category: "cardio".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🚣".into(),
+        },
+        Exercise {
+            id: "stair_climbing".into(),
+            name: "Stair Climbing".into(),
+            name_vi: "Leo cầu thang".into(),
+            met: 9.0,
+            category: "cardio".into(),
+            muscle_group: "Chân".into(),
+            icon: "🏔️".into(),
+        },
+        Exercise {
+            id: "elliptical".into(),
+            name: "Elliptical".into(),
+            name_vi: "Máy elip".into(),
+            met: 5.0,
+            category: "cardio".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🏋️".into(),
+        },
+        Exercise {
+            id: "walking".into(),
+            name: "Walking".into(),
+            name_vi: "Đi bộ".into(),
+            met: 3.5,
+            category: "cardio".into(),
+            muscle_group: "Chân".into(),
+            icon: "🚶".into(),
+        },
         // HIIT
-        Exercise { id: "burpees".into(), name: "Burpees".into(), name_vi: "Burpees".into(), met: 12.5, category: "hiit".into(), muscle_group: "Toàn thân".into(), icon: "🤸".into() },
-        Exercise { id: "mountain_climbers".into(), name: "Mountain Climbers".into(), name_vi: "Leo núi".into(), met: 8.0, category: "hiit".into(), muscle_group: "Toàn thân".into(), icon: "🏔️".into() },
-        Exercise { id: "box_jumps".into(), name: "Box Jumps".into(), name_vi: "Nhảy hộp".into(), met: 10.0, category: "hiit".into(), muscle_group: "Chân".into(), icon: "📦".into() },
+        Exercise {
+            id: "burpees".into(),
+            name: "Burpees".into(),
+            name_vi: "Burpees".into(),
+            met: 12.5,
+            category: "hiit".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🤸".into(),
+        },
+        Exercise {
+            id: "mountain_climbers".into(),
+            name: "Mountain Climbers".into(),
+            name_vi: "Leo núi".into(),
+            met: 8.0,
+            category: "hiit".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🏔️".into(),
+        },
+        Exercise {
+            id: "box_jumps".into(),
+            name: "Box Jumps".into(),
+            name_vi: "Nhảy hộp".into(),
+            met: 10.0,
+            category: "hiit".into(),
+            muscle_group: "Chân".into(),
+            icon: "📦".into(),
+        },
         // Flexibility
-        Exercise { id: "yoga".into(), name: "Yoga".into(), name_vi: "Yoga".into(), met: 3.0, category: "flexibility".into(), muscle_group: "Toàn thân".into(), icon: "🧘".into() },
-        Exercise { id: "stretching".into(), name: "Stretching".into(), name_vi: "Giãn cơ".into(), met: 2.5, category: "flexibility".into(), muscle_group: "Toàn thân".into(), icon: "🧘".into() },
+        Exercise {
+            id: "yoga".into(),
+            name: "Yoga".into(),
+            name_vi: "Yoga".into(),
+            met: 3.0,
+            category: "flexibility".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🧘".into(),
+        },
+        Exercise {
+            id: "stretching".into(),
+            name: "Stretching".into(),
+            name_vi: "Giãn cơ".into(),
+            met: 2.5,
+            category: "flexibility".into(),
+            muscle_group: "Toàn thân".into(),
+            icon: "🧘".into(),
+        },
     ]
 }
 
@@ -135,11 +343,11 @@ fn calculate_calories(
 
 // ─── Persistence ───
 
-fn data_file_path(app_dir: &PathBuf) -> PathBuf {
+fn data_file_path(app_dir: &Path) -> PathBuf {
     app_dir.join("workouts.json")
 }
 
-fn settings_file_path(app_dir: &PathBuf) -> PathBuf {
+fn settings_file_path(app_dir: &Path) -> PathBuf {
     app_dir.join("settings.json")
 }
 
@@ -149,7 +357,7 @@ struct Settings {
     user_name: String,
 }
 
-fn load_workouts(path: &PathBuf) -> Vec<WorkoutEntry> {
+fn load_workouts(path: &Path) -> Vec<WorkoutEntry> {
     if let Ok(data) = fs::read_to_string(path) {
         serde_json::from_str(&data).unwrap_or_default()
     } else {
@@ -157,24 +365,27 @@ fn load_workouts(path: &PathBuf) -> Vec<WorkoutEntry> {
     }
 }
 
-fn save_workouts(path: &PathBuf, workouts: &[WorkoutEntry]) {
+fn save_workouts(path: &Path, workouts: &[WorkoutEntry]) {
     if let Ok(data) = serde_json::to_string_pretty(workouts) {
         let _ = fs::write(path, data);
     }
 }
 
-fn load_settings(path: &PathBuf) -> Settings {
+fn load_settings(path: &Path) -> Settings {
     if let Ok(data) = fs::read_to_string(path) {
         serde_json::from_str(&data).unwrap_or(Settings {
             body_weight: 70.0,
             user_name: "User".into(),
         })
     } else {
-        Settings { body_weight: 70.0, user_name: "User".into() }
+        Settings {
+            body_weight: 70.0,
+            user_name: "User".into(),
+        }
     }
 }
 
-fn save_settings(path: &PathBuf, settings: &Settings) {
+fn save_settings(path: &Path, settings: &Settings) {
     if let Ok(data) = serde_json::to_string_pretty(settings) {
         let _ = fs::write(path, data);
     }
@@ -246,7 +457,7 @@ fn delete_workout(state: State<'_, AppState>, id: String) -> bool {
 #[tauri::command]
 fn get_all_workouts(state: State<'_, AppState>) -> Vec<WorkoutEntry> {
     let mut workouts = state.workouts.lock().unwrap().clone();
-    workouts.sort_by(|a, b| b.date.cmp(&a.date));
+    workouts.sort_by_key(|w| std::cmp::Reverse(w.date));
     workouts
 }
 
@@ -304,7 +515,11 @@ fn get_exercise_distribution(state: State<'_, AppState>, days: i32) -> Vec<Exerc
         .map(|(name, cal)| ExerciseDistribution {
             exercise_name: name,
             calories: cal,
-            percentage: if total > 0.0 { cal / total * 100.0 } else { 0.0 },
+            percentage: if total > 0.0 {
+                cal / total * 100.0
+            } else {
+                0.0
+            },
         })
         .collect()
 }
@@ -317,12 +532,23 @@ fn get_stats_overview(state: State<'_, AppState>, days: i32) -> StatsOverview {
 
     let recent: Vec<&WorkoutEntry> = workouts.iter().filter(|w| w.date > cutoff).collect();
     let total_cal: f64 = recent.iter().map(|w| w.calories_burned).sum();
-    let total_vol: f64 = recent.iter().map(|w| w.sets as f64 * w.reps as f64 * w.weight_kg).sum();
-    let active_days: i32 = recent.iter().map(|w| w.date.date_naive()).collect::<std::collections::HashSet<_>>().len() as i32;
+    let total_vol: f64 = recent
+        .iter()
+        .map(|w| w.sets as f64 * w.reps as f64 * w.weight_kg)
+        .sum();
+    let active_days: i32 = recent
+        .iter()
+        .map(|w| w.date.date_naive())
+        .collect::<std::collections::HashSet<_>>()
+        .len() as i32;
 
     StatsOverview {
         total_calories: total_cal,
-        avg_calories_per_day: if days > 0 { total_cal / days as f64 } else { 0.0 },
+        avg_calories_per_day: if days > 0 {
+            total_cal / days as f64
+        } else {
+            0.0
+        },
         active_days,
         total_workouts: recent.len() as i32,
         total_volume: total_vol,
@@ -339,7 +565,13 @@ fn set_body_weight(state: State<'_, AppState>, weight: f64) {
     *state.body_weight.lock().unwrap() = weight;
     let path = state.data_path.parent().unwrap().join("settings.json");
     let name = state.user_name.lock().unwrap().clone();
-    save_settings(&path, &Settings { body_weight: weight, user_name: name });
+    save_settings(
+        &path,
+        &Settings {
+            body_weight: weight,
+            user_name: name,
+        },
+    );
 }
 
 #[tauri::command]
@@ -352,11 +584,23 @@ fn set_user_name(state: State<'_, AppState>, name: String) {
     *state.user_name.lock().unwrap() = name.clone();
     let path = state.data_path.parent().unwrap().join("settings.json");
     let weight = *state.body_weight.lock().unwrap();
-    save_settings(&path, &Settings { body_weight: weight, user_name: name });
+    save_settings(
+        &path,
+        &Settings {
+            body_weight: weight,
+            user_name: name,
+        },
+    );
 }
 
 #[tauri::command]
-fn preview_calories(exercise_id: String, sets: i32, reps: i32, duration_minutes: f64, state: State<'_, AppState>) -> f64 {
+fn preview_calories(
+    exercise_id: String,
+    sets: i32,
+    reps: i32,
+    duration_minutes: f64,
+    state: State<'_, AppState>,
+) -> f64 {
     let weight = *state.body_weight.lock().unwrap();
     calculate_calories(&exercise_id, weight, sets, reps, duration_minutes)
 }
