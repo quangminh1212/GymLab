@@ -20,6 +20,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ── Navigation ──
 function setupNav() {
+    const menuBtn = document.getElementById('menu-btn');
+    const overlay = document.getElementById('menu-overlay');
+    const sidebar = document.getElementById('sidebar');
+
+    function openMenu() {
+        sidebar.classList.add('open');
+        overlay.classList.add('open');
+    }
+    function closeMenu() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('open');
+    }
+
+    if (menuBtn) menuBtn.addEventListener('click', () => sidebar.classList.contains('open') ? closeMenu() : openMenu());
+    if (overlay) overlay.addEventListener('click', closeMenu);
+
     document.querySelectorAll('.nav-links li').forEach(li => {
         li.addEventListener('click', () => {
             document.querySelectorAll('.nav-links li').forEach(x => x.classList.remove('active'));
@@ -27,6 +43,7 @@ function setupNav() {
             const page = li.dataset.page;
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById('page-' + page).classList.add('active');
+            closeMenu();
             if (page === 'home') loadHomePage();
             if (page === 'history') loadHistory();
             if (page === 'stats') loadStats();
