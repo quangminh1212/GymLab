@@ -6,7 +6,7 @@ import time
 import hashlib
 import threading
 
-PORT = 8080
+PORT = 49152
 SRC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src")
 
 # Live-reload script injected into every HTML response
