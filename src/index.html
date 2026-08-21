@@ -21,31 +21,25 @@
                 <li data-page="add"><span class="nav-icon" data-icon="plus"></span><span>Thêm buổi tập</span></li>
                 <li data-page="history"><span class="nav-icon" data-icon="clipboard"></span><span>Lịch sử</span></li>
                 <li data-page="stats"><span class="nav-icon" data-icon="chart"></span><span>Thống kê</span></li>
+                <li data-page="records"><span class="nav-icon" data-icon="medal"></span><span>Kỷ lục</span></li>
+                <li data-page="weight"><span class="nav-icon" data-icon="scale"></span><span>Cân nặng</span></li>
                 <li data-page="settings"><span class="nav-icon" data-icon="gear"></span><span>Cài đặt</span></li>
             </ul>
             <div class="nav-footer"><span class="version">v1.0.0</span></div>
         </nav>
         <main id="content">
+            <!-- HOME -->
             <div id="page-home" class="page active">
-                <header class="page-header">
-                    <div>
-                        <h1 id="greeting">Xin chào!</h1>
-                        <p id="date-display" class="subtitle"></p>
-                    </div>
-                </header>
+                <header class="page-header"><div><h1 id="greeting">Xin chào!</h1><p id="date-display" class="subtitle"></p></div></header>
                 <div class="stats-grid" id="stats-grid"></div>
-                <div class="section">
-                    <h2>Buổi tập hôm nay</h2>
-                    <div id="today-list" class="workout-list"></div>
-                </div>
+                <div class="section"><h2>Buổi tập hôm nay</h2><div id="today-list" class="workout-list"></div></div>
+                <div class="section"><h2>Kỷ lục cá nhân</h2><div id="home-pr" class="workout-list"></div></div>
             </div>
+            <!-- ADD -->
             <div id="page-add" class="page">
                 <header class="page-header"><h1>Thêm buổi tập</h1></header>
                 <div class="form-card">
-                    <div class="form-group">
-                        <label>Nhóm bài tập</label>
-                        <div id="category-chips" class="chip-group"></div>
-                    </div>
+                    <div class="form-group"><label>Nhóm bài tập</label><div id="category-chips" class="chip-group"></div></div>
                     <div class="form-group"><label>Bài tập</label><div id="exercise-list" class="exercise-select"></div></div>
                     <div class="form-row">
                         <div class="form-group"><label>Sets</label><input type="number" id="input-sets" value="3" min="1" max="100"></div>
@@ -56,20 +50,47 @@
                     <div class="form-group"><label>Ghi chú</label><textarea id="input-notes" rows="2" placeholder="Ghi chú..."></textarea></div>
                     <div class="preview-card"><div class="preview-label">Ước tính calo</div><div class="preview-value" id="preview-calories">0</div><div class="preview-sub">kcal</div></div>
                     <button id="btn-save" class="btn btn-primary btn-full"><span class="btn-icon" data-icon="save"></span> Lưu buổi tập</button>
+                    <button id="btn-save-template" class="btn btn-secondary btn-full" style="margin-top:8px"><span class="btn-icon" data-icon="bookmark"></span> Lưu làm template</button>
                 </div>
+                <div class="section" style="margin-top:20px"><h2>Templates nhanh</h2><div id="template-list" class="workout-list"></div></div>
             </div>
+            <!-- HISTORY -->
             <div id="page-history" class="page">
                 <header class="page-header"><h1>Lịch sử</h1></header>
                 <div class="filter-bar" id="history-filters"></div>
                 <div id="history-list" class="workout-list"></div>
             </div>
+            <!-- STATS -->
             <div id="page-stats" class="page">
                 <header class="page-header"><h1>Thống kê</h1></header>
                 <div class="filter-bar" id="stats-filters"></div>
                 <div class="stats-overview" id="stats-overview"></div>
                 <div class="chart-container"><h3>Calo theo ngày</h3><canvas id="chart-calories"></canvas></div>
                 <div class="chart-container"><h3>Phân bổ bài tập</h3><canvas id="chart-distribution"></canvas></div>
+                <div class="chart-container">
+                    <h3>Tiến bộ bài tập</h3>
+                    <select id="exercise-select-progress" class="form-select"></select>
+                    <canvas id="chart-exercise-progress"></canvas>
+                </div>
             </div>
+            <!-- PERSONAL RECORDS -->
+            <div id="page-records" class="page">
+                <header class="page-header"><h1>Kỷ lục cá nhân</h1></header>
+                <div id="records-list" class="workout-list"></div>
+            </div>
+            <!-- BODY WEIGHT -->
+            <div id="page-weight" class="page">
+                <header class="page-header"><h1>Cân nặng</h1></header>
+                <div class="form-card">
+                    <div class="form-row">
+                        <div class="form-group"><label>Cân nặng (kg)</label><input type="number" id="input-bw" value="70" min="20" max="300" step="0.1"></div>
+                        <div class="form-group" style="display:flex;align-items:flex-end"><button id="btn-log-bw" class="btn btn-primary btn-full">Ghi nhận</button></div>
+                    </div>
+                </div>
+                <div class="chart-container"><h3>Cân nặng theo ngày</h3><canvas id="chart-bodyweight"></canvas></div>
+                <div class="section"><h2>Lịch sử cân nặng</h2><div id="bw-history" class="workout-list"></div></div>
+            </div>
+            <!-- SETTINGS -->
             <div id="page-settings" class="page">
                 <header class="page-header"><h1>Cài đặt</h1></header>
                 <div class="form-card">
@@ -79,6 +100,25 @@
                 </div>
             </div>
         </main>
+        <!-- Rest Timer (floating) -->
+        <div id="rest-timer" class="rest-timer hidden">
+            <div class="timer-ring"><svg viewBox="0 0 120 120"><circle class="timer-bg" cx="60" cy="60" r="54"/><circle class="timer-progress" id="timer-circle" cx="60" cy="60" r="54"/></svg><div class="timer-text" id="timer-display">0:00</div></div>
+            <div class="timer-controls">
+                <button class="timer-btn" id="timer-minus" data-icon="minus"></button>
+                <button class="timer-btn primary" id="timer-toggle" data-icon="play"></button>
+                <button class="timer-btn" id="timer-plus" data-icon="plus"></button>
+                <button class="timer-btn" id="timer-reset" data-icon="reset"></button>
+            </div>
+            <div class="timer-presets">
+                <button class="chip" data-sec="30">30s</button>
+                <button class="chip active" data-sec="60">1:00</button>
+                <button class="chip" data-sec="90">1:30</button>
+                <button class="chip" data-sec="120">2:00</button>
+                <button class="chip" data-sec="180">3:00</button>
+            </div>
+        </div>
+        <!-- Timer FAB -->
+        <button id="timer-fab" class="timer-fab hidden" data-icon="timer"></button>
     </div>
     <script src="js/icons.js"></script>
     <script src="js/api.js"></script>
