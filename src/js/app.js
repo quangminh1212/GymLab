@@ -7,9 +7,18 @@ let statsDays = 7;
 let calChart = null;
 let distChart = null;
 
+const CATEGORIES = [
+    { id: 'strength', label: 'Sức mạnh', icon: 'strength' },
+    { id: 'cardio', label: 'Cardio', icon: 'cardio' },
+    { id: 'hiit', label: 'HIIT', icon: 'hiit' },
+    { id: 'flexibility', label: 'Linh hoạt', icon: 'flexibility' },
+];
+
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
     allExercises = await invoke('get_exercises');
+    injectIcons();
+    buildUI();
     setupNav();
     setupAddPage();
     setupHistoryPage();
@@ -17,6 +26,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupSettingsPage();
     loadHomePage();
 });
+
+// ── Inject icons into data-icon elements ──
+function injectIcons() {
+    document.querySelectorAll('[data-icon]').forEach(el => {
+        el.innerHTML = icon(el.dataset.icon);
+    });
+}
+
+// ── Build dynamic UI elements ──
+function buildUI() {
+    // Logo icon
+    const logo = document.getElementById('logo-icon');
+    if (logo) logo.innerHTML = icon('dumbbell', 28);
+
+    // Menu button
+    const menuBtn = document.getElementById('menu-btn');
+    if (menuBtn) menuBtn.innerHTML = icon('menu', 22);
+
+    // Stats grid
+    document.getElementById('stats-grid').innerHTML = `
+        <div class="stat-card fire"><div class="stat-icon" data-icon="flame"></div><div class="stat-value" id="stat-today-cal">0</div><div class="stat-label">kcal hôm nay</div></div>
+        <div class="stat-card blue"><div class="stat-icon" data-icon="calendar"></div><div class="stat-value" id="stat-week-cal">0</div><div class="stat-label">kcal tuần</div></div>
+        <div class="stat-card green"><div class="stat-icon" data-icon="dumbbell"></div><div class="stat-value" id="stat-week-count">0</div><div class="stat-label">buổi/tuần</div></div>
+        <div class="stat-card purple"><div class="stat-icon" data-icon="trophy"></div><div class="stat-value" id="stat-month-count">0</div><div class="stat-label">buổi/tháng</div></div>
+    `;
+    injectIcons();
+
+    // Category chips
+    document.getElementById('category-chips').innerHTML = CATEGORIES.map(c =>
+        `<button class="chip ${c.id === 'strength' ? 'active' : ''}" data-category="${c.id}">${icon(c.icon, 16)} ${c.label}</button>`
+    ).join('');
+
+    // History filters
+    document.getElementById('history-filters').innerHTML =
+        `<button class="chip active" data-filter="all">Tất cả</button>` +
+        CATEGORIES.map(c => `<button class="chip" data-filter="${c.id}">${icon(c.icon, 16)}</button>`).join('');
+
+    // Stats range filters
+    document.getElementById('stats-filters').innerHTML = [7, 14, 30].map(d =>
+        `<button class="chip range-chip ${d === 7 ? 'active' : ''}" data-days="${d}">${d} ngày</button>`
+    ).join('');
+}
 
 // ── Navigation ──
 function setupNav() {
@@ -80,23 +131,24 @@ async function loadHomePage() {
 
     const listEl = document.getElementById('today-list');
     if (todayWorkouts.length === 0) {
-        listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🏋️</div><p>Chưa có buổi tập nào hôm nay</p></div>';
+        listEl.innerHTML = `<div class="empty-state"><div class="empty-icon" data-icon="dumbbell"></div><p>Chưa có buổi tập nào hôm nay</p></div>`;
+        injectIcons();
     } else {
         listEl.innerHTML = todayWorkouts.map(w => {
-            const ex = allExercises.find(e => e.id === w.exercise_id);
+            const iconKey = getExerciseIcon(w.exercise_id);
             return `<div class="workout-item">
-                <span class="wi-icon">${ex ? ex.icon : '🏋️'}</span>
+                <span class="wi-icon" data-icon="${iconKey}"></span>
                 <div class="wi-info"><div class="wi-name">${w.exercise_name}</div>
                 <div class="wi-detail">${w.sets}×${w.reps} × ${w.weight_kg}kg · ${w.duration_minutes} phút</div></div>
                 <span class="wi-cal">${w.calories_burned.toFixed(1)} kcal</span>
             </div>`;
         }).join('');
+        injectIcons();
     }
 }
 
 // ── Add Workout ──
 function setupAddPage() {
-    // Category chips
     document.querySelectorAll('#category-chips .chip').forEach(chip => {
         chip.addEventListener('click', () => {
             document.querySelectorAll('#category-chips .chip').forEach(c => c.classList.remove('active'));
@@ -106,24 +158,24 @@ function setupAddPage() {
     });
     renderExercises('strength');
 
-    // Input change → update preview
     ['input-sets','input-reps','input-duration'].forEach(id => {
         document.getElementById(id).addEventListener('input', updatePreview);
     });
 
-    // Save button
     document.getElementById('btn-save').addEventListener('click', saveWorkout);
 }
 
 function renderExercises(category) {
     const list = allExercises.filter(e => e.category === category);
     const el = document.getElementById('exercise-list');
-    el.innerHTML = list.map(e => `
-        <div class="exercise-opt ${e.id === selectedExerciseId ? 'selected' : ''}" data-id="${e.id}">
-            <span class="eo-icon">${e.icon}</span>
+    el.innerHTML = list.map(e => {
+        const iconKey = getExerciseIcon(e.id);
+        return `<div class="exercise-opt ${e.id === selectedExerciseId ? 'selected' : ''}" data-id="${e.id}">
+            <span class="eo-icon" data-icon="${iconKey}"></span>
             <span>${e.name_vi}</span>
             <span class="eo-met">MET ${e.met}</span>
-        </div>`).join('');
+        </div>`;
+    }).join('');
 
     el.querySelectorAll('.exercise-opt').forEach(opt => {
         opt.addEventListener('click', () => {
@@ -133,6 +185,7 @@ function renderExercises(category) {
             updatePreview();
         });
     });
+    injectIcons();
     updatePreview();
 }
 
@@ -163,15 +216,14 @@ async function saveWorkout() {
         sets, reps, weight_kg: weight, duration_minutes: dur, notes
     });
 
-    // Navigate to home
     document.querySelector('.nav-links li[data-page="home"]').click();
 }
 
 // ── History ──
 function setupHistoryPage() {
-    document.querySelectorAll('.filter-bar .chip[data-filter]').forEach(chip => {
+    document.querySelectorAll('#history-filters .chip').forEach(chip => {
         chip.addEventListener('click', () => {
-            document.querySelectorAll('.filter-bar .chip[data-filter]').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('#history-filters .chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
             currentFilter = chip.dataset.filter;
             loadHistory();
@@ -197,7 +249,8 @@ async function loadHistory() {
 
     const el = document.getElementById('history-list');
     if (Object.keys(grouped).length === 0) {
-        el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>Chưa có dữ liệu</p></div>';
+        el.innerHTML = `<div class="empty-state"><div class="empty-icon" data-icon="clipboard"></div><p>Chưa có dữ liệu</p></div>`;
+        injectIcons();
         return;
     }
 
@@ -206,12 +259,12 @@ async function loadHistory() {
         const dateObj = new Date(day + 'T00:00:00');
         const dateStr = dateObj.toLocaleDateString('vi-VN', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' });
         const items = workouts.map(w => {
-            const ex = allExercises.find(e => e.id === w.exercise_id);
+            const iconKey = getExerciseIcon(w.exercise_id);
             return `<div class="workout-item">
-                <span class="wi-icon">${ex ? ex.icon : '🏋️'}</span>
+                <span class="wi-icon" data-icon="${iconKey}"></span>
                 <div class="wi-info"><div class="wi-name">${w.exercise_name}</div>
                 <div class="wi-detail">${w.sets}×${w.reps} × ${w.weight_kg}kg · ${w.calories_burned.toFixed(1)} kcal</div></div>
-                <button class="wi-delete" data-id="${w.id}">✕</button>
+                <button class="wi-delete" data-id="${w.id}">${icon('delete', 18)}</button>
             </div>`;
         }).join('');
         return `<div style="margin-bottom:16px">
@@ -220,6 +273,7 @@ async function loadHistory() {
                 <span style="font-size:12px;color:var(--fire);font-weight:600">${dayCal.toFixed(0)} kcal</span>
             </div>${items}</div>`;
     }).join('');
+    injectIcons();
 
     el.querySelectorAll('.wi-delete').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -248,15 +302,14 @@ async function loadStats() {
         invoke('get_stats_overview', { days: statsDays })
     ]);
 
-    // Overview cards
     document.getElementById('stats-overview').innerHTML = `
-        <div class="stat-card fire"><div class="stat-icon">🔥</div><div class="stat-value">${overview.total_calories.toFixed(0)}</div><div class="stat-label">Tổng kcal</div></div>
-        <div class="stat-card blue"><div class="stat-icon">📈</div><div class="stat-value">${overview.avg_calories_per_day.toFixed(0)}</div><div class="stat-label">TB/ngày</div></div>
-        <div class="stat-card green"><div class="stat-icon">📅</div><div class="stat-value">${overview.active_days}</div><div class="stat-label">Ngày tập</div></div>
-        <div class="stat-card purple"><div class="stat-icon">🏋️</div><div class="stat-value">${overview.total_workouts}</div><div class="stat-label">Buổi tập</div></div>
+        <div class="stat-card fire"><div class="stat-icon" data-icon="flame"></div><div class="stat-value">${overview.total_calories.toFixed(0)}</div><div class="stat-label">Tổng kcal</div></div>
+        <div class="stat-card blue"><div class="stat-icon" data-icon="chart"></div><div class="stat-value">${overview.avg_calories_per_day.toFixed(0)}</div><div class="stat-label">TB/ngày</div></div>
+        <div class="stat-card green"><div class="stat-icon" data-icon="calendar"></div><div class="stat-value">${overview.active_days}</div><div class="stat-label">Ngày tập</div></div>
+        <div class="stat-card purple"><div class="stat-icon" data-icon="dumbbell"></div><div class="stat-value">${overview.total_workouts}</div><div class="stat-label">Buổi tập</div></div>
     `;
+    injectIcons();
 
-    // Calorie bar chart
     const calLabels = daily.map(d => {
         const dt = new Date(d.date + 'T00:00:00');
         return `${dt.getDate()}/${dt.getMonth()+1}`;
@@ -286,14 +339,10 @@ async function loadStats() {
         }
     });
 
-    // Distribution pie chart
     const distColors = ['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444','#06b6d4','#eab308','#ec4899'];
     const ctx2 = document.getElementById('chart-distribution').getContext('2d');
     if (distChart) distChart.destroy();
-    if (dist.length === 0) {
-        distChart = null;
-        return;
-    }
+    if (dist.length === 0) { distChart = null; return; }
     distChart = new Chart(ctx2, {
         type: 'doughnut',
         data: {
@@ -307,10 +356,7 @@ async function loadStats() {
         options: {
             responsive: true,
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { color: '#9ca3af', font: { size: 12 }, padding: 12 }
-                }
+                legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 12 }, padding: 12 } }
             }
         }
     });
