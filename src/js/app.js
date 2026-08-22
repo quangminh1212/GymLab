@@ -10,6 +10,33 @@ let progressChart = null;
 let bwChart = null;
 let exProgressChart = null;
 
+// ── Toast notifications ──
+function showToast(message, type = 'info', duration = 3000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    const colors = { success: '#22c55e', error: '#ef4444', info: '#3b82f6', warning: '#f97316' };
+    toast.style.cssText = `pointer-events:auto;padding:12px 20px;border-radius:10px;background:#18181b;border:1px solid ${colors[type] || colors.info};color:#fafafa;font-size:13px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:slideIn .2s ease;max-width:360px`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .2s'; setTimeout(() => toast.remove(), 200); }, duration);
+}
+
+// ── Safe invoke wrapper ──
+async function safeInvoke(cmd, args = {}) {
+    try {
+        return await invoke(cmd, args);
+    } catch (err) {
+        showToast(`Lỗi: ${err.message || err}`, 'error');
+        return null;
+    }
+}
+
 const CATEGORIES = [
     { id: 'strength', label: 'Sức mạnh', icon: 'strength' },
     { id: 'cardio', label: 'Cardio', icon: 'cardio' },
@@ -19,7 +46,7 @@ const CATEGORIES = [
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
-    allExercises = await invoke('get_exercises');
+    allExercises = await safeInvoke('get_exercises');
     injectIcons();
     buildUI();
     setupNav();
@@ -96,11 +123,11 @@ function setupNav() {
 
 // ── Home Page ──
 async function loadHomePage() {
-    const name = await invoke('get_user_name');
+    const name = await safeInvoke('get_user_name');
     document.getElementById('greeting').textContent = `Xin chào, ${name}!`;
     document.getElementById('date-display').textContent = new Date().toLocaleDateString('vi-VN', { weekday:'long', year:'numeric', month:'2-digit', day:'2-digit' });
 
-    const workouts = await invoke('get_all_workouts');
+    const workouts = await safeInvoke('get_all_workouts');
     const today = new Date().toISOString().slice(0,10);
     const todayWorkouts = workouts.filter(w => w.date.slice(0,10) === today);
     document.getElementById('stat-today-cal').textContent = Math.round(todayWorkouts.reduce((s,w) => s+w.calories_burned, 0));
@@ -126,7 +153,7 @@ async function loadHomePage() {
     }
 
     // Top 3 PRs on home
-    const prs = await invoke('get_personal_records');
+    const prs = await safeInvoke('get_personal_records');
     const prEl = document.getElementById('home-pr');
     if (prs.length === 0) {
         prEl.innerHTML = `<div class="empty-state"><p>Chưa có kỷ lục</p></div>`;
@@ -142,7 +169,7 @@ async function loadHomePage() {
 
 // ── Quick Re-log ──
 async function quickRelog(id) {
-    const result = await invoke('quick_relog', { workout_id: id });
+    const result = await safeInvoke('quick_relog', { workout_id: id });
     if (result) { loadHomePage(); }
 }
 
@@ -187,7 +214,7 @@ async function updatePreview() {
     const sets = parseInt(document.getElementById('input-sets').value) || 0;
     const reps = parseInt(document.getElementById('input-reps').value) || 0;
     const dur = parseFloat(document.getElementById('input-duration').value) || 0;
-    const cal = await invoke('preview_calories', { exercise_id: selectedExerciseId, sets, reps, duration_minutes: dur });
+    const cal = await safeInvoke('preview_calories', { exercise_id: selectedExerciseId, sets, reps, duration_minutes: dur });
     document.getElementById('preview-calories').textContent = cal.toFixed(1);
 }
 
@@ -197,8 +224,8 @@ async function saveWorkout() {
     const weight = parseFloat(document.getElementById('input-weight').value) || 0;
     const dur = parseFloat(document.getElementById('input-duration').value) || 0;
     const notes = document.getElementById('input-notes').value || null;
-    if (sets <= 0 || reps <= 0) { alert('Vui lòng nhập Sets và Reps hợp lệ'); return; }
-    await invoke('add_workout', { exercise_id: selectedExerciseId, sets, reps, weight_kg: weight, duration_minutes: dur, notes });
+    if (sets <= 0 || reps <= 0) { showToast('Vui lòng nhập Sets và Reps hợp lệ', 'warning'); return; }
+    await safeInvoke('add_workout', { exercise_id: selectedExerciseId, sets, reps, weight_kg: weight, duration_minutes: dur, notes });
     document.querySelector('.nav-links li[data-page="home"]').click();
 }
 
@@ -208,16 +235,16 @@ async function saveAsTemplate() {
     const sets = parseInt(document.getElementById('input-sets').value) || 3;
     const reps = parseInt(document.getElementById('input-reps').value) || 10;
     const weight = parseFloat(document.getElementById('input-weight').value) || 0;
-    await invoke('save_template', {
+    await safeInvoke('save_template', {
         name, exercise_ids: [selectedExerciseId],
         sets_list: [sets], reps_list: [reps], weights: [weight]
     });
-    alert('Đã lưu template!');
+    showToast('Đã lưu template!', 'success');
 }
 
 // ── Templates ──
 async function loadTemplates() {
-    const templates = await invoke('get_templates');
+    const templates = await safeInvoke('get_templates');
     const el = document.getElementById('template-list');
     if (templates.length === 0) {
         el.innerHTML = `<div class="empty-state"><p>Chưa có template nào</p></div>`;
@@ -233,16 +260,16 @@ async function loadTemplates() {
 }
 
 async function relogTemplate(id) {
-    const result = await invoke('relog_from_template', { template_id: id });
+    const result = await safeInvoke('relog_from_template', { template_id: id });
     if (result && result.length > 0) {
-        alert(`Đã ghi nhận ${result.length} bài tập từ template!`);
+        showToast(`Đã ghi nhận ${result.length} bài tập từ template!`);
         document.querySelector('.nav-links li[data-page="home"]').click();
     }
 }
 
 async function deleteTemplate(id) {
     if (confirm('Xóa template?')) {
-        await invoke('delete_template', { id });
+        await safeInvoke('delete_template', { id });
         loadTemplates();
     }
 }
@@ -260,7 +287,7 @@ function setupHistoryPage() {
 }
 
 async function loadHistory() {
-    const workouts = await invoke('get_all_workouts');
+    const workouts = await safeInvoke('get_all_workouts');
     const filtered = currentFilter === 'all' ? workouts :
         workouts.filter(w => { const ex = allExercises.find(e => e.id === w.exercise_id); return ex && ex.category === currentFilter; });
 
@@ -293,7 +320,7 @@ async function loadHistory() {
 
 async function deleteWorkout(id) {
     if (confirm('Xóa buổi tập?')) {
-        await invoke('delete_workout', { id });
+        await safeInvoke('delete_workout', { id });
         loadHistory();
     }
 }
@@ -345,7 +372,7 @@ async function loadStats() {
 
 async function loadExerciseProgress() {
     const eid = document.getElementById('exercise-select-progress').value;
-    const data = await invoke('get_exercise_progress', { exercise_id: eid });
+    const data = await safeInvoke('get_exercise_progress', { exercise_id: eid });
     const ctx = document.getElementById('chart-exercise-progress').getContext('2d');
     if (exProgressChart) exProgressChart.destroy();
     if (data.length === 0) return;
@@ -356,7 +383,7 @@ async function loadExerciseProgress() {
 function setupRecordsPage() {}
 
 async function loadRecords() {
-    const prs = await invoke('get_personal_records');
+    const prs = await safeInvoke('get_personal_records');
     const el = document.getElementById('records-list');
     if (prs.length === 0) {
         el.innerHTML = `<div class="empty-state"><div class="empty-icon" data-icon="medal"></div><p>Chưa có kỷ lục nào</p></div>`;
@@ -376,13 +403,13 @@ function setupWeightPage() {
     document.getElementById('btn-log-bw').addEventListener('click', async () => {
         const w = parseFloat(document.getElementById('input-bw').value);
         if (!w || w < 20) return;
-        await invoke('log_body_weight', { weight: w });
+        await safeInvoke('log_body_weight', { weight: w });
         loadWeight();
     });
 }
 
 async function loadWeight() {
-    const history = await invoke('get_body_weight_history', { days: 365 });
+    const history = await safeInvoke('get_body_weight_history', { days: 365 });
 
     // Chart
     const ctx = document.getElementById('chart-bodyweight').getContext('2d');
@@ -411,15 +438,15 @@ function setupSettingsPage() {
     document.getElementById('btn-save-settings').addEventListener('click', async () => {
         const name = document.getElementById('input-username').value;
         const weight = parseFloat(document.getElementById('input-bodyweight').value) || 70;
-        await invoke('set_user_name', { name });
-        await invoke('set_body_weight', { weight });
-        alert('Đã lưu!');
+        await safeInvoke('set_user_name', { name });
+        await safeInvoke('set_body_weight', { weight });
+        showToast('Đã lưu!', 'success');
     });
 }
 
 async function loadSettings() {
-    document.getElementById('input-username').value = await invoke('get_user_name');
-    document.getElementById('input-bodyweight').value = await invoke('get_body_weight');
+    document.getElementById('input-username').value = await safeInvoke('get_user_name');
+    document.getElementById('input-bodyweight').value = await safeInvoke('get_body_weight');
 }
 
 // ── Rest Timer ──
@@ -506,4 +533,38 @@ function setupTimer() {
 
     updateTimerDisplay();
     injectIcons();
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', (e) => {
+    // Escape closes mobile menu
+    if (e.key === 'Escape') {
+        document.getElementById('sidebar')?.classList.remove('open');
+        document.getElementById('menu-overlay')?.classList.remove('open');
+    }
+    // Alt+1-7 navigate pages
+    if (e.altKey && e.key >= '1' && e.key <= '7') {
+        const pages = ['home', 'add', 'history', 'stats', 'records', 'weight', 'settings'];
+        const idx = parseInt(e.key) - 1;
+        if (idx < pages.length) {
+            document.querySelector(`.nav-links li[data-page="${pages[idx]}"]`)?.click();
+        }
+    }
+    // Space toggles rest timer (when not in input)
+    if (e.key === ' ' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        e.preventDefault();
+        document.getElementById('timer-fab')?.click();
+    }
+});
+
+// ── Accessibility: announce page changes ──
+const liveRegion = document.createElement('div');
+liveRegion.setAttribute('role', 'status');
+liveRegion.setAttribute('aria-live', 'polite');
+liveRegion.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden';
+document.body.appendChild(liveRegion);
+
+function announcePage(pageName) {
+    const labels = { home: 'Trang chủ', add: 'Thêm buổi tập', history: 'Lịch sử', stats: 'Thống kê', records: 'Kỷ lục', weight: 'Cân nặng', settings: 'Cài đặt' };
+    liveRegion.textContent = `Đã chuyển sang trang ${labels[pageName] || pageName}`;
 }

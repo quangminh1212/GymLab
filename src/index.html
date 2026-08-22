@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GymLab</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/animations.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
@@ -27,7 +28,7 @@
             </ul>
             <div class="nav-footer"><span class="version">v1.0.0</span></div>
         </nav>
-        <main id="content">
+        <main id="content" role="main" aria-label="Nội dung chính">
             <!-- HOME -->
             <div id="page-home" class="page active">
                 <header class="page-header"><div><h1 id="greeting">Xin chào!</h1><p id="date-display" class="subtitle"></p></div></header>
@@ -49,8 +50,8 @@
                     <div class="form-group"><label>Thời gian (phút)</label><input type="number" id="input-duration" value="30" min="0" max="300"></div>
                     <div class="form-group"><label>Ghi chú</label><textarea id="input-notes" rows="2" placeholder="Ghi chú..."></textarea></div>
                     <div class="preview-card"><div class="preview-label">Ước tính calo</div><div class="preview-value" id="preview-calories">0</div><div class="preview-sub">kcal</div></div>
-                    <button id="btn-save" class="btn btn-primary btn-full"><span class="btn-icon" data-icon="save"></span> Lưu buổi tập</button>
-                    <button id="btn-save-template" class="btn btn-secondary btn-full" style="margin-top:8px"><span class="btn-icon" data-icon="bookmark"></span> Lưu làm template</button>
+                    <button id="btn-save" aria-label="Lưu buổi tập" class="btn btn-primary btn-full"><span class="btn-icon" data-icon="save"></span> Lưu buổi tập</button>
+                    <button id="btn-save-template" aria-label="Lưu làm template" class="btn btn-secondary btn-full" style="margin-top:8px"><span class="btn-icon" data-icon="bookmark"></span> Lưu làm template</button>
                 </div>
                 <div class="section" style="margin-top:20px"><h2>Templates nhanh</h2><div id="template-list" class="workout-list"></div></div>
             </div>
@@ -84,7 +85,7 @@
                 <div class="form-card">
                     <div class="form-row">
                         <div class="form-group"><label>Cân nặng (kg)</label><input type="number" id="input-bw" value="70" min="20" max="300" step="0.1"></div>
-                        <div class="form-group" style="display:flex;align-items:flex-end"><button id="btn-log-bw" class="btn btn-primary btn-full">Ghi nhận</button></div>
+                        <div class="form-group" style="display:flex;align-items:flex-end"><button id="btn-log-bw" aria-label="Ghi nhận cân nặng" class="btn btn-primary btn-full">Ghi nhận</button></div>
                     </div>
                 </div>
                 <div class="chart-container"><h3>Cân nặng theo ngày</h3><canvas id="chart-bodyweight"></canvas></div>
@@ -96,7 +97,7 @@
                 <div class="form-card">
                     <div class="form-group"><label>Tên</label><input type="text" id="input-username" placeholder="Tên..."></div>
                     <div class="form-group"><label>Cân nặng (kg)</label><input type="number" id="input-bodyweight" value="70" min="20" max="300" step="0.5"><small>Tính calories theo ACSM</small></div>
-                    <button id="btn-save-settings" class="btn btn-primary">Lưu</button>
+                    <button id="btn-save-settings" aria-label="Lưu cài đặt" class="btn btn-primary">Lưu</button>
                 </div>
             </div>
         </main>
@@ -118,7 +119,7 @@
             </div>
         </div>
         <!-- Timer FAB -->
-        <button id="timer-fab" class="timer-fab hidden" data-icon="timer"></button>
+        <button id="timer-fab" aria-label="Rest Timer" class="timer-fab hidden" data-icon="timer"></button>
     </div>
     <script src="js/icons.js"></script>
     <script src="js/api.js"></script>

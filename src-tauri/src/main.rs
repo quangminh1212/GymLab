@@ -369,22 +369,52 @@ fn calculate_calories(
     reps: i32,
     duration_minutes: f64,
 ) -> f64 {
-    let exercises = get_exercise_db();
-    let exercise = match exercises.iter().find(|e| e.id == exercise_id) {
-        Some(e) => e,
-        None => return 0.0,
-    };
-
+    let exercise = find_exercise(exercise_id);
     let weight = if body_weight > 0.0 { body_weight } else { 70.0 };
     let duration_hrs = if duration_minutes > 0.0 {
         duration_minutes / 60.0
     } else {
-        // Estimate: ~3 sec/rep + 60s rest between sets
-        let total_secs = (sets as f64) * (reps as f64) * 3.0 + ((sets - 1) as f64) * 60.0;
+        let total_secs =
+            (sets.max(1) as f64) * (reps.max(1) as f64) * 3.0 + ((sets.max(1) - 1) as f64) * 60.0;
         total_secs / 3600.0
     };
 
     exercise.met * weight * duration_hrs
+}
+
+/// Find exercise by ID, returns default "Unknown" exercise if not found.
+fn find_exercise(exercise_id: &str) -> Exercise {
+    let exercises = get_exercise_db();
+    exercises
+        .into_iter()
+        .find(|e| e.id == exercise_id)
+        .unwrap_or(Exercise {
+            id: "unknown".into(),
+            name: "Unknown".into(),
+            name_vi: "Không rõ".into(),
+            met: 5.0,
+            category: "unknown".into(),
+            muscle_group: "unknown".into(),
+            icon: "dumbbell".into(),
+        })
+}
+
+// ─── Input Validation ───
+
+fn validate_sets(s: i32) -> i32 {
+    s.clamp(1, 100)
+}
+fn validate_reps(r: i32) -> i32 {
+    r.clamp(1, 1000)
+}
+fn validate_weight(w: f64) -> f64 {
+    w.clamp(0.0, 500.0)
+}
+fn validate_duration(d: f64) -> f64 {
+    d.clamp(0.0, 600.0)
+}
+fn validate_body_weight(w: f64) -> f64 {
+    w.clamp(20.0, 300.0)
 }
 
 // ─── Persistence ───
@@ -470,6 +500,11 @@ fn add_workout(
     duration_minutes: f64,
     notes: Option<String>,
 ) -> WorkoutEntry {
+    let sets = validate_sets(sets);
+    let reps = validate_reps(reps);
+    let weight_kg = validate_weight(weight_kg);
+    let duration_minutes = validate_duration(duration_minutes);
+
     let exercises = get_exercise_db();
     let exercise = exercises.iter().find(|e| e.id == exercise_id).unwrap();
 
@@ -616,6 +651,7 @@ fn get_body_weight(state: State<'_, AppState>) -> f64 {
 
 #[tauri::command]
 fn set_body_weight(state: State<'_, AppState>, weight: f64) {
+    let weight = validate_body_weight(weight);
     *state.body_weight.lock().unwrap() = weight;
     let path = state.data_path.parent().unwrap().join("settings.json");
     let name = state.user_name.lock().unwrap().clone();
@@ -965,4 +1001,145 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// ─── Unit Tests ───
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_exercise_db_has_26_entries() {
+        let db = get_exercise_db();
+        assert_eq!(db.len(), 26);
+    }
+
+    #[test]
+    fn test_find_exercise_valid() {
+        let ex = find_exercise("bench_press");
+        assert_eq!(ex.name, "Bench Press");
+        assert_eq!(ex.met, 6.0);
+    }
+
+    #[test]
+    fn test_find_exercise_invalid_returns_default() {
+        let ex = find_exercise("nonexistent");
+        assert_eq!(ex.name, "Unknown");
+        assert_eq!(ex.met, 5.0);
+    }
+
+    #[test]
+    fn test_calculate_calories_positive() {
+        let cal = calculate_calories("bench_press", 70.0, 3, 10, 30.0);
+        assert!(cal > 0.0, "calories should be positive");
+    }
+
+    #[test]
+    fn test_calculate_calories_zero_duration_estimates() {
+        let cal = calculate_calories("bench_press", 70.0, 3, 10, 0.0);
+        assert!(cal > 0.0, "should estimate from reps");
+    }
+
+    #[test]
+    fn test_calculate_calories_unknown_uses_default_met() {
+        // Unknown exercise gets MET 5.0, so calories > 0
+        let cal = calculate_calories("fake", 70.0, 3, 10, 30.0);
+        assert!(cal > 0.0, "unknown exercise uses default MET 5.0");
+    }
+
+    #[test]
+    fn test_validate_sets_clamps() {
+        assert_eq!(validate_sets(0), 1);
+        assert_eq!(validate_sets(5), 5);
+        assert_eq!(validate_sets(200), 100);
+    }
+
+    #[test]
+    fn test_validate_reps_clamps() {
+        assert_eq!(validate_reps(0), 1);
+        assert_eq!(validate_reps(12), 12);
+        assert_eq!(validate_reps(5000), 1000);
+    }
+
+    #[test]
+    fn test_validate_weight_clamps() {
+        assert_eq!(validate_weight(-5.0), 0.0);
+        assert_eq!(validate_weight(60.0), 60.0);
+        assert_eq!(validate_weight(999.0), 500.0);
+    }
+
+    #[test]
+    fn test_validate_body_weight_clamps() {
+        assert_eq!(validate_body_weight(5.0), 20.0);
+        assert_eq!(validate_body_weight(75.0), 75.0);
+        assert_eq!(validate_body_weight(500.0), 300.0);
+    }
+
+    #[test]
+    fn test_validate_duration_clamps() {
+        assert_eq!(validate_duration(-1.0), 0.0);
+        assert_eq!(validate_duration(45.0), 45.0);
+        assert_eq!(validate_duration(999.0), 600.0);
+    }
+
+    #[test]
+    fn test_all_met_values_positive() {
+        let db = get_exercise_db();
+        for ex in &db {
+            assert!(ex.met > 0.0, "{} has non-positive MET: {}", ex.id, ex.met);
+        }
+    }
+
+    #[test]
+    fn test_all_exercise_ids_unique() {
+        let db = get_exercise_db();
+        let ids: Vec<&str> = db.iter().map(|e| e.id.as_str()).collect();
+        let unique: std::collections::HashSet<&str> = ids.iter().copied().collect();
+        assert_eq!(ids.len(), unique.len(), "duplicate exercise IDs found");
+    }
+
+    #[test]
+    fn test_workout_entry_serialization_roundtrip() {
+        let entry = WorkoutEntry {
+            id: "test-id".into(),
+            exercise_id: "bench_press".into(),
+            exercise_name: "Bench Press".into(),
+            sets: 3,
+            reps: 10,
+            weight_kg: 60.0,
+            duration_minutes: 30.0,
+            date: Utc::now(),
+            calories_burned: 123.45,
+            met_value: 6.0,
+            notes: Some("test".into()),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let back: WorkoutEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, entry.id);
+        assert_eq!(back.exercise_id, entry.exercise_id);
+        assert_eq!(back.sets, entry.sets);
+        assert!((back.calories_burned - entry.calories_burned).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_daily_summary() {
+        let ds = DailySummary {
+            date: Utc::now().date_naive(),
+            calories: 500.0,
+            workout_count: 3,
+        };
+        assert_eq!(ds.workout_count, 3);
+        assert!(ds.calories > 0.0);
+    }
+
+    #[test]
+    fn test_settings_default() {
+        let s = Settings {
+            body_weight: 70.0,
+            user_name: "User".into(),
+        };
+        assert!(s.body_weight > 0.0);
+        assert!(!s.user_name.is_empty());
+    }
 }
