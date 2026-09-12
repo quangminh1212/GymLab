@@ -9,6 +9,10 @@ use tauri::{Manager, State};
 
 // ─── Data Models ───
 
+fn default_weight_known() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Exercise {
     pub id: String,
@@ -28,6 +32,8 @@ pub struct WorkoutEntry {
     pub sets: i32,
     pub reps: i32,
     pub weight_kg: f64,
+    #[serde(default = "default_weight_known")]
+    pub weight_known: bool,
     pub duration_minutes: f64,
     pub date: DateTime<Utc>,
     pub calories_burned: f64,
@@ -107,6 +113,7 @@ pub struct ExerciseProgress {
 pub struct AppState {
     pub workouts: Mutex<Vec<WorkoutEntry>>,
     pub body_weight: Mutex<f64>,
+    pub body_weight_source: Mutex<String>,
     pub user_name: Mutex<String>,
     pub templates: Mutex<Vec<WorkoutTemplate>>,
     pub body_weight_log: Mutex<Vec<BodyWeightEntry>>,
@@ -370,8 +377,12 @@ fn calculate_calories(
     duration_minutes: f64,
 ) -> f64 {
     let exercise = find_exercise(exercise_id);
-    let weight = if body_weight > 0.0 { body_weight } else { 70.0 };
-    let duration_hrs = if duration_minutes > 0.0 {
+    let weight = if body_weight.is_finite() && body_weight > 0.0 {
+        body_weight
+    } else {
+        70.0
+    };
+    let duration_hrs = if duration_minutes.is_finite() && duration_minutes > 0.0 {
         duration_minutes / 60.0
     } else {
         let total_secs =
@@ -399,22 +410,50 @@ fn find_exercise(exercise_id: &str) -> Exercise {
         })
 }
 
+fn find_exercise_checked(exercise_id: &str) -> Result<Exercise, String> {
+    get_exercise_db()
+        .into_iter()
+        .find(|exercise| exercise.id == exercise_id)
+        .ok_or_else(|| format!("Unknown exercise id: {exercise_id}"))
+}
+
 // ─── Input Validation ───
 
 fn validate_sets(s: i32) -> i32 {
     s.clamp(1, 100)
 }
 fn validate_reps(r: i32) -> i32 {
-    r.clamp(1, 1000)
+    // Duration-based activities (running, yoga, cycling, ...) legitimately
+    // have no repetition count; strength entries may still supply >= 1.
+    r.clamp(0, 1000)
 }
 fn validate_weight(w: f64) -> f64 {
-    w.clamp(0.0, 500.0)
+    if w.is_finite() {
+        w.clamp(0.0, 500.0)
+    } else {
+        0.0
+    }
 }
 fn validate_duration(d: f64) -> f64 {
-    d.clamp(0.0, 600.0)
+    if d.is_finite() {
+        d.clamp(0.0, 600.0)
+    } else {
+        0.0
+    }
 }
 fn validate_body_weight(w: f64) -> f64 {
-    w.clamp(20.0, 300.0)
+    if w.is_finite() {
+        w.clamp(20.0, 300.0)
+    } else {
+        70.0
+    }
+}
+
+fn resolve_body_weight(override_weight: Option<f64>, stored_weight: f64) -> f64 {
+    override_weight
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .map(validate_body_weight)
+        .unwrap_or_else(|| validate_body_weight(stored_weight))
 }
 
 // ─── Persistence ───
@@ -439,11 +478,30 @@ fn body_weight_log_file_path(app_dir: &Path) -> PathBuf {
 struct Settings {
     body_weight: f64,
     user_name: String,
+    #[serde(default = "default_body_weight_source")]
+    body_weight_source: String,
+}
+
+fn default_body_weight_source() -> String {
+    "default".into()
 }
 
 fn load_workouts(path: &Path) -> Vec<WorkoutEntry> {
     if let Ok(data) = fs::read_to_string(path) {
-        serde_json::from_str(&data).unwrap_or_default()
+        let mut workouts: Vec<WorkoutEntry> = serde_json::from_str(&data).unwrap_or_default();
+        // Entries written before `weight_known` existed used 0 kg for an
+        // unreadable video load. Preserve that meaning during migration when
+        // the provenance note identifies the old unknown-load path.
+        for workout in &mut workouts {
+            if workout
+                .notes
+                .as_deref()
+                .is_some_and(|notes| notes.contains("weight_source=Chưa xác định từ video"))
+            {
+                workout.weight_known = false;
+            }
+        }
+        workouts
     } else {
         vec![]
     }
@@ -457,14 +515,25 @@ fn save_workouts(path: &Path, workouts: &[WorkoutEntry]) {
 
 fn load_settings(path: &Path) -> Settings {
     if let Ok(data) = fs::read_to_string(path) {
-        serde_json::from_str(&data).unwrap_or(Settings {
+        let mut settings = serde_json::from_str(&data).unwrap_or(Settings {
             body_weight: 70.0,
             user_name: "User".into(),
-        })
+            body_weight_source: default_body_weight_source(),
+        });
+        // Settings written before source provenance existed did not carry a
+        // source field. A non-default persisted value is strong evidence that
+        // the user entered it, so migrate it without relabeling the default.
+        if settings.body_weight_source == "default"
+            && (settings.body_weight - 70.0).abs() > f64::EPSILON
+        {
+            settings.body_weight_source = "settings".into();
+        }
+        settings
     } else {
         Settings {
             body_weight: 70.0,
             user_name: "User".into(),
+            body_weight_source: default_body_weight_source(),
         }
     }
 }
@@ -483,6 +552,11 @@ fn get_exercises() -> Vec<Exercise> {
 }
 
 #[tauri::command]
+fn get_data_path(state: State<'_, AppState>) -> String {
+    state.data_path.display().to_string()
+}
+
+#[tauri::command]
 fn get_exercises_by_category(category: String) -> Vec<Exercise> {
     get_exercise_db()
         .into_iter()
@@ -491,6 +565,9 @@ fn get_exercises_by_category(category: String) -> Vec<Exercise> {
 }
 
 #[tauri::command]
+// Keep the flat IPC schema stable for the existing frontend while accepting the
+// analysis-specific body weight used to reproduce the displayed calorie value.
+#[allow(clippy::too_many_arguments)]
 fn add_workout(
     state: State<'_, AppState>,
     exercise_id: String,
@@ -498,17 +575,19 @@ fn add_workout(
     reps: i32,
     weight_kg: f64,
     duration_minutes: f64,
+    body_weight_kg: Option<f64>,
+    weight_known: Option<bool>,
     notes: Option<String>,
-) -> WorkoutEntry {
+) -> Result<WorkoutEntry, String> {
     let sets = validate_sets(sets);
     let reps = validate_reps(reps);
     let weight_kg = validate_weight(weight_kg);
+    let weight_known = weight_known.unwrap_or(true);
     let duration_minutes = validate_duration(duration_minutes);
 
-    let exercises = get_exercise_db();
-    let exercise = exercises.iter().find(|e| e.id == exercise_id).unwrap();
+    let exercise = find_exercise_checked(&exercise_id)?;
 
-    let weight = *state.body_weight.lock().unwrap();
+    let weight = resolve_body_weight(body_weight_kg, *state.body_weight.lock().unwrap());
     let calories = calculate_calories(&exercise_id, weight, sets, reps, duration_minutes);
 
     let entry = WorkoutEntry {
@@ -518,6 +597,7 @@ fn add_workout(
         sets,
         reps,
         weight_kg,
+        weight_known,
         duration_minutes,
         date: Utc::now(),
         calories_burned: calories,
@@ -528,7 +608,7 @@ fn add_workout(
     let mut workouts = state.workouts.lock().unwrap();
     workouts.push(entry.clone());
     save_workouts(&state.data_path, &workouts);
-    entry
+    Ok(entry)
 }
 
 #[tauri::command]
@@ -649,10 +729,25 @@ fn get_body_weight(state: State<'_, AppState>) -> f64 {
     *state.body_weight.lock().unwrap()
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct BodyWeightMetadata {
+    value: f64,
+    source: String,
+}
+
+#[tauri::command]
+fn get_body_weight_metadata(state: State<'_, AppState>) -> BodyWeightMetadata {
+    BodyWeightMetadata {
+        value: *state.body_weight.lock().unwrap(),
+        source: state.body_weight_source.lock().unwrap().clone(),
+    }
+}
+
 #[tauri::command]
 fn set_body_weight(state: State<'_, AppState>, weight: f64) {
     let weight = validate_body_weight(weight);
     *state.body_weight.lock().unwrap() = weight;
+    *state.body_weight_source.lock().unwrap() = "settings".into();
     let path = state.data_path.parent().unwrap().join("settings.json");
     let name = state.user_name.lock().unwrap().clone();
     save_settings(
@@ -660,6 +755,7 @@ fn set_body_weight(state: State<'_, AppState>, weight: f64) {
         &Settings {
             body_weight: weight,
             user_name: name,
+            body_weight_source: "settings".into(),
         },
     );
 }
@@ -674,11 +770,13 @@ fn set_user_name(state: State<'_, AppState>, name: String) {
     *state.user_name.lock().unwrap() = name.clone();
     let path = state.data_path.parent().unwrap().join("settings.json");
     let weight = *state.body_weight.lock().unwrap();
+    let weight_source = state.body_weight_source.lock().unwrap().clone();
     save_settings(
         &path,
         &Settings {
             body_weight: weight,
             user_name: name,
+            body_weight_source: weight_source,
         },
     );
 }
@@ -829,6 +927,7 @@ fn relog_from_template(state: State<'_, AppState>, template_id: String) -> Vec<W
             sets: ex.sets,
             reps: ex.reps,
             weight_kg: ex.weight_kg,
+            weight_known: true,
             duration_minutes: 0.0,
             date: Utc::now(),
             calories_burned: calories,
@@ -930,6 +1029,7 @@ fn quick_relog(state: State<'_, AppState>, workout_id: String) -> Option<Workout
         sets: original.sets,
         reps: original.reps,
         weight_kg: original.weight_kg,
+        weight_known: original.weight_known,
         duration_minutes: original.duration_minutes,
         date: Utc::now(),
         calories_burned: calories,
@@ -949,10 +1049,15 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            let data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("Failed to get app data dir");
+            // Test harnesses may provide an isolated directory without
+            // changing the production Windows Known Folder behavior.
+            let data_dir = std::env::var_os("GYMLAB_DATA_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| {
+                    app.path()
+                        .app_data_dir()
+                        .expect("Failed to get app data dir")
+                });
             let _ = fs::create_dir_all(&data_dir);
 
             let workouts_path = data_file_path(&data_dir);
@@ -967,6 +1072,7 @@ fn main() {
             app.manage(AppState {
                 workouts: Mutex::new(workouts),
                 body_weight: Mutex::new(settings.body_weight),
+                body_weight_source: Mutex::new(settings.body_weight_source),
                 user_name: Mutex::new(settings.user_name),
                 templates: Mutex::new(templates),
                 body_weight_log: Mutex::new(body_weight_log),
@@ -977,6 +1083,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_exercises,
+            get_data_path,
             get_exercises_by_category,
             add_workout,
             delete_workout,
@@ -985,6 +1092,7 @@ fn main() {
             get_exercise_distribution,
             get_stats_overview,
             get_body_weight,
+            get_body_weight_metadata,
             set_body_weight,
             get_user_name,
             set_user_name,
@@ -1030,6 +1138,12 @@ mod tests {
     }
 
     #[test]
+    fn test_find_exercise_checked_rejects_invalid_id_without_panic() {
+        let error = find_exercise_checked("nonexistent").unwrap_err();
+        assert!(error.contains("Unknown exercise id"));
+    }
+
+    #[test]
     fn test_calculate_calories_positive() {
         let cal = calculate_calories("bench_press", 70.0, 3, 10, 30.0);
         assert!(cal > 0.0, "calories should be positive");
@@ -1057,7 +1171,8 @@ mod tests {
 
     #[test]
     fn test_validate_reps_clamps() {
-        assert_eq!(validate_reps(0), 1);
+        assert_eq!(validate_reps(-1), 0);
+        assert_eq!(validate_reps(0), 0);
         assert_eq!(validate_reps(12), 12);
         assert_eq!(validate_reps(5000), 1000);
     }
@@ -1067,6 +1182,7 @@ mod tests {
         assert_eq!(validate_weight(-5.0), 0.0);
         assert_eq!(validate_weight(60.0), 60.0);
         assert_eq!(validate_weight(999.0), 500.0);
+        assert_eq!(validate_weight(f64::NAN), 0.0);
     }
 
     #[test]
@@ -1074,6 +1190,15 @@ mod tests {
         assert_eq!(validate_body_weight(5.0), 20.0);
         assert_eq!(validate_body_weight(75.0), 75.0);
         assert_eq!(validate_body_weight(500.0), 300.0);
+        assert_eq!(validate_body_weight(f64::NAN), 70.0);
+    }
+
+    #[test]
+    fn test_resolve_body_weight_prefers_analysis_override() {
+        assert_eq!(resolve_body_weight(Some(82.5), 70.0), 82.5);
+        assert_eq!(resolve_body_weight(None, 70.0), 70.0);
+        assert_eq!(resolve_body_weight(Some(0.0), 70.0), 70.0);
+        assert_eq!(resolve_body_weight(Some(f64::NAN), 70.0), 70.0);
     }
 
     #[test]
@@ -1081,6 +1206,7 @@ mod tests {
         assert_eq!(validate_duration(-1.0), 0.0);
         assert_eq!(validate_duration(45.0), 45.0);
         assert_eq!(validate_duration(999.0), 600.0);
+        assert_eq!(validate_duration(f64::NAN), 0.0);
     }
 
     #[test]
@@ -1108,6 +1234,7 @@ mod tests {
             sets: 3,
             reps: 10,
             weight_kg: 60.0,
+            weight_known: true,
             duration_minutes: 30.0,
             date: Utc::now(),
             calories_burned: 123.45,
@@ -1119,7 +1246,27 @@ mod tests {
         assert_eq!(back.id, entry.id);
         assert_eq!(back.exercise_id, entry.exercise_id);
         assert_eq!(back.sets, entry.sets);
+        assert!(back.weight_known);
         assert!((back.calories_burned - entry.calories_burned).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_legacy_workout_defaults_weight_to_known() {
+        let json = r#"{
+            "id":"legacy",
+            "exercise_id":"squat",
+            "exercise_name":"Squat",
+            "sets":3,
+            "reps":10,
+            "weight_kg":0.0,
+            "duration_minutes":0.0,
+            "date":"2026-01-01T00:00:00Z",
+            "calories_burned":1.0,
+            "met_value":6.0,
+            "notes":null
+        }"#;
+        let entry: WorkoutEntry = serde_json::from_str(json).unwrap();
+        assert!(entry.weight_known);
     }
 
     #[test]
@@ -1138,6 +1285,7 @@ mod tests {
         let s = Settings {
             body_weight: 70.0,
             user_name: "User".into(),
+            body_weight_source: default_body_weight_source(),
         };
         assert!(s.body_weight > 0.0);
         assert!(!s.user_name.is_empty());

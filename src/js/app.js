@@ -30,11 +30,17 @@ function showToast(message, type = 'info', duration = 3000) {
 // ── Safe invoke wrapper ──
 async function safeInvoke(cmd, args = {}) {
     try {
-        return await invoke(cmd, args);
+        const bridge = window.gymLabInvoke;
+        if (typeof bridge !== 'function') throw new Error('IPC bridge unavailable');
+        return await bridge(cmd, args);
     } catch (err) {
         showToast(`Lỗi: ${err.message || err}`, 'error');
         return null;
     }
+}
+
+function formatWorkoutWeight(workout) {
+    return workout?.weight_known === false ? 'Chưa xác định' : `${workout?.weight_kg ?? 0}kg`;
 }
 
 const CATEGORIES = [
@@ -46,7 +52,9 @@ const CATEGORIES = [
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
-    allExercises = await safeInvoke('get_exercises');
+    // Keep navigation and local video analysis usable even when an optional
+    // exercise-database IPC call is temporarily unavailable.
+    allExercises = (await safeInvoke('get_exercises')) || [];
     injectIcons();
     buildUI();
     setupNav();
@@ -123,11 +131,11 @@ function setupNav() {
 
 // ── Home Page ──
 async function loadHomePage() {
-    const name = await safeInvoke('get_user_name');
+    const name = (await safeInvoke('get_user_name')) || 'User';
     document.getElementById('greeting').textContent = `Xin chào, ${name}!`;
     document.getElementById('date-display').textContent = new Date().toLocaleDateString('vi-VN', { weekday:'long', year:'numeric', month:'2-digit', day:'2-digit' });
 
-    const workouts = await safeInvoke('get_all_workouts');
+    const workouts = (await safeInvoke('get_all_workouts')) || [];
     const today = new Date().toISOString().slice(0,10);
     const todayWorkouts = workouts.filter(w => w.date.slice(0,10) === today);
     document.getElementById('stat-today-cal').textContent = Math.round(todayWorkouts.reduce((s,w) => s+w.calories_burned, 0));
@@ -147,13 +155,13 @@ async function loadHomePage() {
         listEl.innerHTML = todayWorkouts.map(w => `<div class="workout-item">
             <span class="wi-icon" data-icon="${getExerciseIcon(w.exercise_id)}"></span>
             <div class="wi-info"><div class="wi-name">${w.exercise_name}</div>
-            <div class="wi-detail">${w.sets}×${w.reps} × ${w.weight_kg}kg · ${w.calories_burned.toFixed(1)} kcal</div></div>
+            <div class="wi-detail">${w.sets}×${w.reps} × ${formatWorkoutWeight(w)} · ${w.calories_burned.toFixed(1)} kcal</div></div>
             <button class="wi-delete" onclick="quickRelog('${w.id}')" title="Re-log">${icon('repeat', 16)}</button>
         </div>`).join('');
     }
 
     // Top 3 PRs on home
-    const prs = await safeInvoke('get_personal_records');
+    const prs = (await safeInvoke('get_personal_records')) || [];
     const prEl = document.getElementById('home-pr');
     if (prs.length === 0) {
         prEl.innerHTML = `<div class="empty-state"><p>Chưa có kỷ lục</p></div>`;
@@ -310,7 +318,7 @@ async function loadHistory() {
             </div>${workouts.map(w => `<div class="workout-item">
                 <span class="wi-icon" data-icon="${getExerciseIcon(w.exercise_id)}"></span>
                 <div class="wi-info"><div class="wi-name">${w.exercise_name}</div>
-                <div class="wi-detail">${w.sets}×${w.reps} × ${w.weight_kg}kg · ${w.calories_burned.toFixed(1)} kcal</div></div>
+                <div class="wi-detail">${w.sets}×${w.reps} × ${formatWorkoutWeight(w)} · ${w.calories_burned.toFixed(1)} kcal</div></div>
                 <button class="wi-delete" onclick="quickRelog('${w.id}')" title="Re-log">${icon('repeat', 16)}</button>
                 <button class="wi-delete" onclick="deleteWorkout('${w.id}')" title="Xóa">${icon('delete', 16)}</button>
             </div>`).join('')}</div>`;
@@ -442,11 +450,14 @@ function setupSettingsPage() {
         await safeInvoke('set_body_weight', { weight });
         showToast('Đã lưu!', 'success');
     });
+    document.getElementById('btn-ai-diagnostics').addEventListener('click', () => {
+        window.location.href = 'diagnostics/inference-smoke.html';
+    });
 }
 
 async function loadSettings() {
-    document.getElementById('input-username').value = await safeInvoke('get_user_name');
-    document.getElementById('input-bodyweight').value = await safeInvoke('get_body_weight');
+    document.getElementById('input-username').value = (await safeInvoke('get_user_name')) || '';
+    document.getElementById('input-bodyweight').value = (await safeInvoke('get_body_weight')) || 70;
 }
 
 // ── Rest Timer ──
@@ -542,9 +553,9 @@ document.addEventListener('keydown', (e) => {
         document.getElementById('sidebar')?.classList.remove('open');
         document.getElementById('menu-overlay')?.classList.remove('open');
     }
-    // Alt+1-7 navigate pages
-    if (e.altKey && e.key >= '1' && e.key <= '7') {
-        const pages = ['home', 'add', 'history', 'stats', 'records', 'weight', 'settings'];
+    // Alt+1-8 navigate pages in the same order as the sidebar, including video analysis.
+    if (e.altKey && e.key >= '1' && e.key <= '8') {
+        const pages = ['home', 'video', 'add', 'history', 'stats', 'records', 'weight', 'settings'];
         const idx = parseInt(e.key) - 1;
         if (idx < pages.length) {
             document.querySelector(`.nav-links li[data-page="${pages[idx]}"]`)?.click();

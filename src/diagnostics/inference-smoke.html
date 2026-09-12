@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GymLab inference smoke</title>
+<style>
+    body { margin: 32px; max-width: 760px; font: 14px/1.6 system-ui, sans-serif; background: #09090b; color: #f4f4f5; }
+    h1 { font-size: 22px; }
+    pre { padding: 16px; border: 1px solid #27272a; border-radius: 10px; white-space: pre-wrap; }
+    a { color: #4ade80; }
+</style>
+<h1>Kiểm tra AI local</h1>
+<p>Đang kiểm tra pose model và OCR được đóng gói trong GymLab.</p>
+<pre id="result">running</pre>
+<p><a href="../index.html">Quay lại GymLab</a></p>
+<script src="../vendor/tesseract/tesseract.min.js"></script>
+<script>
+    window.addEventListener("error", (event) => {
+        const output = document.getElementById("result");
+        output.textContent += `\nwindow_error: ${event.message || event.error || "unknown"}`;
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+        const output = document.getElementById("result");
+        output.textContent += `\nunhandled_rejection: ${event.reason || "unknown"}`;
+    });
+</script>
+<script type="module">
+    import { FilesetResolver, PoseLandmarker } from "../vendor/mediapipe/vision_bundle.mjs?smoke=1";
+
+    const output = document.getElementById("result");
+    const report = [];
+    function log(message) {
+        report.push(message);
+        output.textContent = report.join("\n");
+    }
+
+    async function canvasBlob() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 960;
+        canvas.height = 240;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "white";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "black";
+        context.font = "bold 96px Arial";
+        context.fillText("DUMBBELL 60 kg", 40, 150);
+        return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("canvas blob failed")), "image/png"));
+    }
+
+    function withTimeout(promise, label, timeoutMs = 30000) {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs} ms`)), timeoutMs)),
+        ]);
+    }
+
+    log("module-start");
+    (async () => {
+        try {
+            const vision = await withTimeout(FilesetResolver.forVisionTasks(new URL("../vendor/mediapipe/wasm/", import.meta.url).href), "MediaPipe fileset");
+            const landmarker = await withTimeout(PoseLandmarker.createFromOptions(vision, {
+                baseOptions: { modelAssetPath: "../models/pose_landmarker_lite.task", delegate: "CPU" },
+                runningMode: "IMAGE",
+                numPoses: 1,
+            }), "Pose Landmarker");
+            landmarker.close();
+            log("pose_model: OK");
+        } catch (error) {
+            log(`pose_model: ERROR ${error}`);
+        }
+
+        try {
+            const worker = await withTimeout(window.Tesseract.createWorker("eng", 1, {
+                workerPath: "../vendor/tesseract/worker.min.js",
+                corePath: "../vendor/tesseract/",
+                langPath: "../models/tessdata/",
+                workerBlobURL: false,
+            }), "Tesseract worker");
+            const recognized = await withTimeout(worker.recognize(await canvasBlob()), "Tesseract OCR");
+            const text = recognized.data.text.replace(/\s+/g, " ").trim();
+            const passed = /60\s*kg/i.test(text);
+            log(`ocr: ${passed ? "OK" : "ERROR"} text=${text} confidence=${recognized.data.confidence}`);
+            await worker.terminate();
+        } catch (error) {
+            log(`ocr: ERROR ${error}`);
+        }
+        log("done");
+    })();
+</script>

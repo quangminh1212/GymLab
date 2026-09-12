@@ -19,6 +19,7 @@
             </div>
             <ul class="nav-links" id="nav-links">
                 <li class="active" data-page="home"><span class="nav-icon" data-icon="home"></span><span>Trang chủ</span></li>
+                <li data-page="video"><span class="nav-icon" data-icon="video"></span><span>Phân tích video</span></li>
                 <li data-page="add"><span class="nav-icon" data-icon="plus"></span><span>Thêm buổi tập</span></li>
                 <li data-page="history"><span class="nav-icon" data-icon="clipboard"></span><span>Lịch sử</span></li>
                 <li data-page="stats"><span class="nav-icon" data-icon="chart"></span><span>Thống kê</span></li>
@@ -35,6 +36,97 @@
                 <div class="stats-grid" id="stats-grid"></div>
                 <div class="section"><h2>Buổi tập hôm nay</h2><div id="today-list" class="workout-list"></div></div>
                 <div class="section"><h2>Kỷ lục cá nhân</h2><div id="home-pr" class="workout-list"></div></div>
+            </div>
+            <!-- VIDEO ANALYSIS -->
+            <div id="page-video" class="page">
+                <header class="page-header">
+                    <h1>Phân tích video</h1>
+                    <p class="subtitle">Nhận diện bài tập và đếm reps trực tiếp trên thiết bị</p>
+                </header>
+                <div class="analysis-layout">
+                    <section class="form-card analysis-input-card">
+                        <label class="video-dropzone" id="video-dropzone" for="analysis-video-input">
+                            <span class="dropzone-icon" data-icon="upload"></span>
+                            <span class="dropzone-title">Chọn hoặc kéo thả video</span>
+                            <span class="dropzone-hint">MP4, WebM hoặc MOV · xử lý cục bộ, không tải lên máy chủ</span>
+                            <input id="analysis-video-input" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" hidden>
+                        </label>
+                        <video id="analysis-video" class="analysis-video" controls playsinline preload="metadata" hidden></video>
+                        <div id="analysis-video-meta" class="analysis-video-meta" hidden></div>
+                        <div class="form-row analysis-settings">
+                            <div class="form-group">
+                                <label for="analysis-body-weight">Cân nặng người tập (kg)</label>
+                                <input type="number" id="analysis-body-weight" min="20" max="300" step="0.1" value="70">
+                                <small>Dùng để ước tính kcal theo MET; nếu chưa xác nhận, hệ thống ghi rõ mặc định 70 kg.</small>
+                                <label class="analysis-confirm-weight"><input type="checkbox" id="analysis-body-weight-confirm"> Xác nhận dùng cân nặng này để tính kcal</label>
+                            </div>
+                            <div class="form-group">
+                                <label for="analysis-weight">Tạ (kg, tùy chọn)</label>
+                                <input type="number" id="analysis-weight" min="0" max="500" step="0.5" placeholder="Không xác định tự động">
+                                <small>Ưu tiên OCR nhãn kg trong video; có thể sửa thủ công.</small>
+                                <label class="analysis-confirm-weight" id="analysis-load-confirm-wrap" hidden><input type="checkbox" id="analysis-load-confirm" disabled> Xác nhận nhãn OCR là tải của bài tập</label>
+                            </div>
+                        </div>
+                        <button id="btn-analyze-video" class="btn btn-primary btn-full" disabled>
+                            <span class="btn-icon" data-icon="sparkles"></span> Phân tích video
+                        </button>
+                        <div id="analysis-progress" class="analysis-progress" hidden>
+                            <div class="progress-track"><span id="analysis-progress-bar"></span></div>
+                            <span id="analysis-progress-label">Đang chuẩn bị model...</span>
+                        </div>
+                        <div id="analysis-status" class="analysis-status" role="status" aria-live="polite">
+                            Chọn một video có đủ toàn thân và ánh sáng ổn định để bắt đầu.
+                        </div>
+                    </section>
+                    <section id="analysis-results" class="analysis-results" hidden>
+                        <div class="analysis-result-header">
+                            <div>
+                                <span class="eyebrow">KẾT QUẢ AI</span>
+                                <h2 id="analysis-exercise-name">Chưa có kết quả</h2>
+                            </div>
+                            <span id="analysis-confidence" class="confidence-badge">--</span>
+                        </div>
+                        <div class="analysis-stat-grid">
+                            <div class="analysis-stat"><span class="analysis-stat-label">Reps</span><strong id="analysis-reps">--</strong></div>
+                            <div class="analysis-stat"><span class="analysis-stat-label">Sets ước tính</span><strong id="analysis-sets">--</strong></div>
+                            <div class="analysis-stat"><span class="analysis-stat-label">Tạ</span><strong id="analysis-weight-result">--</strong></div>
+                            <div class="analysis-stat"><span class="analysis-stat-label">Calo ước tính</span><strong id="analysis-calories">--</strong></div>
+                        </div>
+                        <div class="analysis-detail-list">
+                            <div><span>Thời gian vận động</span><strong id="analysis-active-time">--</strong></div>
+                            <div><span>Độ phủ pose</span><strong id="analysis-pose-coverage">--</strong></div>
+                            <div><span>Phạm vi AI</span><strong id="analysis-scope">--</strong></div>
+                            <div><span>Nguồn kg</span><strong id="analysis-weight-source">--</strong></div>
+                            <div><span>Bằng chứng kg</span><strong id="analysis-weight-confidence">--</strong></div>
+                            <div><span>Nguồn cân nặng</span><strong id="analysis-body-weight-source">--</strong></div>
+                            <div><span>Công thức kcal</span><strong id="analysis-calorie-source">--</strong></div>
+                        </div>
+                        <div class="analysis-review-grid">
+                            <div class="form-group">
+                                <label for="analysis-exercise-review">Bài tập xác nhận</label>
+                                <select id="analysis-exercise-review" class="form-select">
+                                    <option value="__auto__">Giữ kết quả AI</option>
+                                </select>
+                                <small>Chọn lại nếu góc quay làm AI chưa chắc chắn.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="analysis-reps-review">Reps xác nhận</label>
+                                <input type="number" id="analysis-reps-review" min="1" max="1000" step="1" placeholder="AI chưa đếm được">
+                                <small>Chỉ sửa khi số reps hiển thị chưa đúng.</small>
+                            </div>
+                        </div>
+                        <div id="analysis-warning" class="analysis-warning"></div>
+                        <button id="btn-save-analysis" class="btn btn-secondary btn-full" disabled>
+                            <span class="btn-icon" data-icon="save"></span> Lưu vào nhật ký
+                        </button>
+                        <button id="btn-export-analysis" class="btn btn-secondary btn-full" disabled>
+                            Xuất báo cáo JSON audit
+                        </button>
+                    </section>
+                </div>
+                <div class="analysis-note">
+                    <strong>Giới hạn đo lường:</strong> pose model dùng để nhận diện chuyển động và đếm reps; điểm AI là heuristic chưa calibration, không phải xác suất chính xác. OCR chỉ đọc được kg/lb khi nhãn hiển thị đủ rõ và lặp lại trên nhiều frame. Nếu không có nhãn, GymLab giữ `Chưa xác định` thay vì bịa số kg. Kcal là ước tính theo MET, không thay thế thiết bị đo sinh lý.
+                </div>
             </div>
             <!-- ADD -->
             <div id="page-add" class="page">
@@ -98,6 +190,8 @@
                     <div class="form-group"><label>Tên</label><input type="text" id="input-username" placeholder="Tên..."></div>
                     <div class="form-group"><label>Cân nặng (kg)</label><input type="number" id="input-bodyweight" value="70" min="20" max="300" step="0.5"><small>Tính calories theo ACSM</small></div>
                     <button id="btn-save-settings" aria-label="Lưu cài đặt" class="btn btn-primary">Lưu</button>
+                    <button id="btn-ai-diagnostics" aria-label="Chạy kiểm tra AI local" class="btn btn-secondary btn-full" style="margin-top:8px">Chạy kiểm tra AI local</button>
+                    <small>Kiểm tra pose model và OCR ngay trên thiết bị; không tải dữ liệu lên máy chủ.</small>
                 </div>
             </div>
         </main>
@@ -124,5 +218,7 @@
     <script src="js/icons.js"></script>
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
+    <script src="vendor/tesseract/tesseract.min.js"></script>
+    <script type="module" src="js/video-analysis.js"></script>
 </body>
 </html>

@@ -1,0 +1,35 @@
+{
+  "schema_version": "gymlab.exercise-profile-model.v1",
+  "status": "candidate",
+  "algorithm": "audited-feature-centroid-v1",
+  "feature_order": [
+    "knee_angle_range",
+    "elbow_angle_range",
+    "hip_angle_range",
+    "wrist_height_range",
+    "wrist_span_range",
+    "torso_ratio_mean",
+    "torso_ratio_median",
+    "horizontal_pose_ratio",
+    "vertical_pose_ratio",
+    "overhead_pose_ratio",
+    "motion_energy"
+  ],
+  "dataset": {
+    "name": "not-trained",
+    "revision": "none",
+    "license": "none",
+    "consent_policy": "not-applicable",
+    "annotation_revision": "none",
+    "split": "train"
+  },
+  "training": {
+    "sample_count": 0,
+    "class_count": 0,
+    "subject_count": 0,
+    "camera_count": 0,
+    "audit_sha256": {},
+    "min_samples_per_class": 2
+  },
+  "classes": {}
+}

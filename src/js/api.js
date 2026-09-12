@@ -1,15 +1,31 @@
+(() => {
 // ── Tauri API Bridge ──
 // Wraps invoke() calls; in dev mode (browser), falls back to localStorage mock.
 
 const isTauri = typeof window.__TAURI__ !== 'undefined';
 
+function toTauriArgs(args) {
+    return Object.fromEntries(
+        Object.entries(args || {}).map(([key, value]) => [
+            key.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase()),
+            value,
+        ]),
+    );
+}
+
 async function invoke(cmd, args = {}) {
     if (isTauri) {
-        return window.__TAURI__.core.invoke(cmd, args);
+        return window.__TAURI__.core.invoke(cmd, toTauriArgs(args));
     }
     // Fallback: mock storage for browser dev
     return mockInvoke(cmd, args);
 }
+
+// Explicit bridge for ES modules (module scope cannot see classic-script bindings reliably).
+window.gymLabInvoke = invoke;
+// Existing classic app.js handlers use the legacy global name; keep it as an
+// alias while the bridge itself remains scoped and safe to load repeatedly.
+window.invoke = invoke;
 
 // ── Mock for browser dev ──
 const MOCK_KEY = 'gymlab_workouts';
@@ -47,8 +63,12 @@ async function mockInvoke(cmd, args) {
         case 'get_exercises_by_category':
             return EXERCISE_DB.filter(e => e.category === args.category);
         case 'get_body_weight': return s.body_weight || 70;
+        case 'get_body_weight_metadata': return {
+            value: s.body_weight || 70,
+            source: s.body_weight_source || ((s.body_weight && s.body_weight !== 70) ? 'settings' : 'default'),
+        };
         case 'set_body_weight':
-            s.body_weight = args.weight; saveMockSettings(s); return;
+            s.body_weight = args.weight; s.body_weight_source = 'settings'; saveMockSettings(s); return;
         case 'get_user_name': return s.user_name || 'User';
         case 'set_user_name':
             s.user_name = args.name; saveMockSettings(s); return;
@@ -61,7 +81,7 @@ async function mockInvoke(cmd, args) {
         }
         case 'add_workout': {
             const met = MET_DB[args.exercise_id] || 5;
-            const wt = s.body_weight || 70;
+            const wt = args.body_weight_kg > 0 ? args.body_weight_kg : (s.body_weight || 70);
             const dur = args.duration_minutes > 0 ? args.duration_minutes / 60
                 : ((args.sets * args.reps * 3 + (args.sets-1)*60) / 3600);
             const cal = met * wt * dur;
@@ -71,6 +91,7 @@ async function mockInvoke(cmd, args) {
                 exercise_id: args.exercise_id,
                 exercise_name: ex ? ex.name_vi : args.exercise_id,
                 sets: args.sets, reps: args.reps, weight_kg: args.weight_kg,
+                weight_known: args.weight_known !== false,
                 duration_minutes: args.duration_minutes,
                 date: now.toISOString(),
                 calories_burned: cal, met_value: met,
@@ -157,7 +178,7 @@ async function mockInvoke(cmd, args) {
                 const met = MET_DB[ex.exercise_id]||5;
                 const dur = (ex.sets*ex.reps*3+(ex.sets-1)*60)/3600;
                 const cal = met*wt*dur;
-                return { id: crypto.randomUUID(), exercise_id: ex.exercise_id, exercise_name: ex.exercise_name, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg, duration_minutes: 0, date: now.toISOString(), calories_burned: cal, met_value: met, notes: null };
+                return { id: crypto.randomUUID(), exercise_id: ex.exercise_id, exercise_name: ex.exercise_name, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg, weight_known: true, duration_minutes: 0, date: now.toISOString(), calories_burned: cal, met_value: met, notes: null };
             });
         }
         case 'log_body_weight': {
@@ -182,7 +203,7 @@ async function mockInvoke(cmd, args) {
             const met = MET_DB[orig.exercise_id]||5;
             const dur = orig.duration_minutes > 0 ? orig.duration_minutes/60 : (orig.sets*orig.reps*3+(orig.sets-1)*60)/3600;
             const cal = met*wt*dur;
-            const entry = { id: crypto.randomUUID(), exercise_id: orig.exercise_id, exercise_name: orig.exercise_name, sets: orig.sets, reps: orig.reps, weight_kg: orig.weight_kg, duration_minutes: orig.duration_minutes, date: now.toISOString(), calories_burned: cal, met_value: met, notes: 'Re-log' };
+            const entry = { id: crypto.randomUUID(), exercise_id: orig.exercise_id, exercise_name: orig.exercise_name, sets: orig.sets, reps: orig.reps, weight_kg: orig.weight_kg, weight_known: orig.weight_known !== false, duration_minutes: orig.duration_minutes, date: now.toISOString(), calories_burned: cal, met_value: met, notes: 'Re-log' };
             w.push(entry); saveMockWorkouts(w); return entry;
         }
         default: return null;
@@ -228,3 +249,4 @@ const EXERCISE_DB = [
     {id:"yoga",name:"Yoga",name_vi:"Yoga",met:3,category:"flexibility",muscle_group:"Toàn thân",icon:"🧘"},
     {id:"stretching",name:"Stretching",name_vi:"Giãn cơ",met:2.5,category:"flexibility",muscle_group:"Toàn thân",icon:"🧘"},
 ];
+})();
