@@ -1047,7 +1047,6 @@ fn quick_relog(state: State<'_, AppState>, workout_id: String) -> Option<Workout
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             // Test harnesses may provide an isolated directory without
             // changing the production Windows Known Folder behavior.

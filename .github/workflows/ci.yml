@@ -26,13 +26,15 @@ jobs:
         run: cd src-tauri && cargo test
 
   frontend:
-    name: Frontend (lint)
+    name: Frontend (lint + i18n validation)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Validate HTML
         run: |
-          # Check for unclosed tags (basic)
           python3 -c "
           html = open('src/index.html').read()
           opens = html.count('<div')
@@ -42,24 +44,60 @@ jobs:
           "
       - name: Validate JS syntax
         run: |
+          node --check src/js/i18n.js && echo "i18n.js: OK"
           node --check src/js/app.js && echo "app.js: OK"
           node --check src/js/api.js && echo "api.js: OK"
           node --check src/js/icons.js && echo "icons.js: OK"
           node --check src/js/video-analysis-core.js && echo "video-analysis-core.js: OK"
           node --check src/js/video-analysis.js && echo "video-analysis.js: OK"
           node tests/video-analysis-core.test.mjs
-          python3 -m py_compile tests/video-analysis-e2e.py tests/packaged-video-smoke.py tests/collect_benchmark_audits.py tests/generate_weight_fixture.py tests/evaluate_benchmark.py tests/test_evaluate_benchmark.py tests/prepare_benchmark_manifest.py tests/test_prepare_benchmark_manifest.py tests/prepare_profile_labels.py tests/test_prepare_profile_labels.py tests/train_profile_model.py tests/test_train_profile_model.py tests/promote_profile_model.py tests/test_promote_profile_model.py
-          python3 tests/test_evaluate_benchmark.py
-          python3 tests/test_prepare_benchmark_manifest.py
-          python3 tests/test_prepare_profile_labels.py
-          python3 tests/test_train_profile_model.py
-          python3 tests/test_promote_profile_model.py
+      - name: Validate i18n completeness
+        run: |
+          python3 -c "
+          import re
+          i18n = open('src/js/i18n.js').read()
+          en_keys = set(re.findall(r\"'([a-z][a-z0-9._]+)':\s*'\", i18n.split('en:')[1].split('vi:')[0]))
+          vi_keys = set(re.findall(r\"'([a-z][a-z0-9._]+)':\s*'\", i18n.split('vi:')[1]))
+          missing_in_vi = en_keys - vi_keys
+          missing_in_en = vi_keys - en_keys
+          if missing_in_vi:
+              print(f'WARNING: Missing in vi: {missing_in_vi}')
+          if missing_in_en:
+              print(f'WARNING: Missing in en: {missing_in_en}')
+          if not missing_in_vi and not missing_in_en:
+              print(f'i18n OK: {len(en_keys)} keys in both locales')
+          assert not missing_in_vi and not missing_in_en, 'i18n key mismatch'
+          "
+      - name: Validate i18n usage in HTML
+        run: |
+          python3 -c "
+          html = open('src/index.html').read()
+          # Check no hardcoded Vietnamese text in HTML (allow technical terms)
+          vi_pattern = re.compile(r'[À-ɏ]{3,}') if __import__('re') else None
+          import re
+          # Allow Vietnamese in specific safe contexts (option text, comments)
+          lines = html.split('\n')
+          issues = []
+          for i, line in enumerate(lines, 1):
+              stripped = line.strip()
+              if stripped.startswith('<!--') or 'data-i18n' in stripped:
+                  continue
+              if re.search(r'[Ā-ɏ]{3,}', stripped) and '<' in stripped:
+                  issues.append(f'Line {i}: possible hardcoded non-English text')
+          if issues:
+              for issue in issues[:5]:
+                  print(issue)
+              print(f'Total: {len(issues)} potential issues')
+          else:
+              print('HTML i18n: OK - no hardcoded non-English text found')
+          "
       - name: Validate local inference assets
         run: |
           test -f src/models/pose_landmarker_lite.task
           test -f src/models/tessdata/eng.traineddata.gz
           test -f src/vendor/mediapipe/vision_bundle.mjs
           test -f src/vendor/tesseract/worker.min.js
+          test -f src/js/chart.min.js
           echo "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a  src/models/pose_landmarker_lite.task" | sha256sum -c -
           echo "ed350f3752f81ee8f38769edc14d92d997dababe23b565c59879372cc46a2468  src/models/tessdata/eng.traineddata.gz" | sha256sum -c -
       - name: Validate CSS
@@ -71,23 +109,69 @@ jobs:
           assert opens == closes, f'CSS brace mismatch: {opens} vs {closes}'
           print(f'CSS OK: {opens} rule blocks balanced')
           "
+      - name: Validate Python test scripts
+        run: |
+          python3 -m py_compile tests/video-analysis-e2e.py tests/packaged-video-smoke.py tests/collect_benchmark_audits.py tests/generate_weight_fixture.py tests/evaluate_benchmark.py tests/test_evaluate_benchmark.py tests/prepare_benchmark_manifest.py tests/test_prepare_benchmark_manifest.py tests/prepare_profile_labels.py tests/test_prepare_profile_labels.py tests/train_profile_model.py tests/test_train_profile_model.py tests/promote_profile_model.py tests/test_promote_profile_model.py
+          python3 tests/test_evaluate_benchmark.py
+          python3 tests/test_prepare_benchmark_manifest.py
+          python3 tests/test_prepare_profile_labels.py
+          python3 tests/test_train_profile_model.py
+          python3 tests/test_promote_profile_model.py
 
-  build:
-    name: Build (Tauri)
+  build-linux:
+    name: Build (Linux)
     needs: [rust, frontend]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
       - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
       - name: Install Node deps
-        run: npm install
+        run: npm ci
       - name: Build
         run: cd src-tauri && cargo build --release
+
+  build-windows:
+    name: Build (Windows)
+    needs: [rust, frontend]
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Node deps
+        run: npm ci
+      - name: Build
+        run: npm run build
+
+  build-macos:
+    name: Build (macOS)
+    needs: [rust, frontend]
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Node deps
+        run: npm ci
+      - name: Build
+        run: npm run build
 
   windows-release-smoke:
     name: Windows packaged video smoke

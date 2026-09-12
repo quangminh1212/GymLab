@@ -1,197 +1,209 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GymLab</title>
+    <meta name="description" content="GymLab - Gym Journal & Calorie Tracker with AI-powered video analysis">
+    <meta name="theme-color" content="#09090b">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/animations.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="js/chart.min.js"></script>
 </head>
 <body>
     <div id="app">
+        <a href="#content" class="skip-link">Skip to content</a>
         <button id="menu-btn" aria-label="Menu"></button>
         <div id="menu-overlay"></div>
-        <nav id="sidebar">
+        <nav id="sidebar" aria-label="Main navigation">
             <div class="logo">
                 <span class="logo-icon" id="logo-icon"></span>
                 <span class="logo-text">GymLab</span>
             </div>
             <ul class="nav-links" id="nav-links">
-                <li class="active" data-page="home"><span class="nav-icon" data-icon="home"></span><span>Trang chủ</span></li>
-                <li data-page="video"><span class="nav-icon" data-icon="video"></span><span>Phân tích video</span></li>
-                <li data-page="add"><span class="nav-icon" data-icon="plus"></span><span>Thêm buổi tập</span></li>
-                <li data-page="history"><span class="nav-icon" data-icon="clipboard"></span><span>Lịch sử</span></li>
-                <li data-page="stats"><span class="nav-icon" data-icon="chart"></span><span>Thống kê</span></li>
-                <li data-page="records"><span class="nav-icon" data-icon="medal"></span><span>Kỷ lục</span></li>
-                <li data-page="weight"><span class="nav-icon" data-icon="scale"></span><span>Cân nặng</span></li>
-                <li data-page="settings"><span class="nav-icon" data-icon="gear"></span><span>Cài đặt</span></li>
+                <li class="active" data-page="home"><span class="nav-icon" data-icon="home"></span><span data-i18n="nav.home">Home</span></li>
+                <li data-page="video"><span class="nav-icon" data-icon="video"></span><span data-i18n="nav.video">Video Analysis</span></li>
+                <li data-page="add"><span class="nav-icon" data-icon="plus"></span><span data-i18n="nav.add">Add Workout</span></li>
+                <li data-page="history"><span class="nav-icon" data-icon="clipboard"></span><span data-i18n="nav.history">History</span></li>
+                <li data-page="stats"><span class="nav-icon" data-icon="chart"></span><span data-i18n="nav.stats">Stats</span></li>
+                <li data-page="records"><span class="nav-icon" data-icon="medal"></span><span data-i18n="nav.records">Records</span></li>
+                <li data-page="weight"><span class="nav-icon" data-icon="scale"></span><span data-i18n="nav.weight">Body Weight</span></li>
+                <li data-page="settings"><span class="nav-icon" data-icon="gear"></span><span data-i18n="nav.settings">Settings</span></li>
             </ul>
-            <div class="nav-footer"><span class="version">v1.0.0</span></div>
+            <div class="nav-footer"><span class="version" id="version-label">v1.0.0</span></div>
         </nav>
-        <main id="content" role="main" aria-label="Nội dung chính">
+        <main id="content" role="main" aria-label="Main content">
             <!-- HOME -->
             <div id="page-home" class="page active">
-                <header class="page-header"><div><h1 id="greeting">Xin chào!</h1><p id="date-display" class="subtitle"></p></div></header>
+                <header class="page-header"><div><h1 id="greeting">Hello!</h1><p id="date-display" class="subtitle"></p></div></header>
                 <div class="stats-grid" id="stats-grid"></div>
-                <div class="section"><h2>Buổi tập hôm nay</h2><div id="today-list" class="workout-list"></div></div>
-                <div class="section"><h2>Kỷ lục cá nhân</h2><div id="home-pr" class="workout-list"></div></div>
+                <div class="section"><h2 data-i18n="home.today_workouts">Today's Workouts</h2><div id="today-list" class="workout-list"></div></div>
+                <div class="section"><h2 data-i18n="home.personal_records">Personal Records</h2><div id="home-pr" class="workout-list"></div></div>
             </div>
             <!-- VIDEO ANALYSIS -->
             <div id="page-video" class="page">
                 <header class="page-header">
-                    <h1>Phân tích video</h1>
-                    <p class="subtitle">Nhận diện bài tập và đếm reps trực tiếp trên thiết bị</p>
+                    <h1 data-i18n="video.title">Video Analysis</h1>
+                    <p class="subtitle" data-i18n="video.subtitle">Exercise recognition and rep counting, processed locally on your device</p>
                 </header>
                 <div class="analysis-layout">
                     <section class="form-card analysis-input-card">
                         <label class="video-dropzone" id="video-dropzone" for="analysis-video-input">
                             <span class="dropzone-icon" data-icon="upload"></span>
-                            <span class="dropzone-title">Chọn hoặc kéo thả video</span>
-                            <span class="dropzone-hint">MP4, WebM hoặc MOV · xử lý cục bộ, không tải lên máy chủ</span>
+                            <span class="dropzone-title" data-i18n="video.dropzone_title">Choose or drag &amp; drop a video</span>
+                            <span class="dropzone-hint" data-i18n="video.dropzone_hint">MP4, WebM, or MOV · processed locally, never uploaded</span>
                             <input id="analysis-video-input" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" hidden>
                         </label>
                         <video id="analysis-video" class="analysis-video" controls playsinline preload="metadata" hidden></video>
                         <div id="analysis-video-meta" class="analysis-video-meta" hidden></div>
                         <div class="form-row analysis-settings">
                             <div class="form-group">
-                                <label for="analysis-body-weight">Cân nặng người tập (kg)</label>
+                                <label for="analysis-body-weight" data-i18n="video.body_weight_label">Body weight (kg)</label>
                                 <input type="number" id="analysis-body-weight" min="20" max="300" step="0.1" value="70">
-                                <small>Dùng để ước tính kcal theo MET; nếu chưa xác nhận, hệ thống ghi rõ mặc định 70 kg.</small>
-                                <label class="analysis-confirm-weight"><input type="checkbox" id="analysis-body-weight-confirm"> Xác nhận dùng cân nặng này để tính kcal</label>
+                                <small data-i18n="video.body_weight_hint">Used for kcal estimation per MET; defaults to 70 kg until confirmed.</small>
+                                <label class="analysis-confirm-weight"><input type="checkbox" id="analysis-body-weight-confirm"> <span data-i18n="video.body_weight_confirm">Confirm using this weight for kcal calculation</span></label>
                             </div>
                             <div class="form-group">
-                                <label for="analysis-weight">Tạ (kg, tùy chọn)</label>
-                                <input type="number" id="analysis-weight" min="0" max="500" step="0.5" placeholder="Không xác định tự động">
-                                <small>Ưu tiên OCR nhãn kg trong video; có thể sửa thủ công.</small>
-                                <label class="analysis-confirm-weight" id="analysis-load-confirm-wrap" hidden><input type="checkbox" id="analysis-load-confirm" disabled> Xác nhận nhãn OCR là tải của bài tập</label>
+                                <label for="analysis-weight" data-i18n="video.load_label">Weight (kg, optional)</label>
+                                <input type="number" id="analysis-weight" min="0" max="500" step="0.5">
+                                <small data-i18n="video.load_hint">Prioritizes OCR kg labels in video; editable manually.</small>
+                                <label class="analysis-confirm-weight" id="analysis-load-confirm-wrap" hidden><input type="checkbox" id="analysis-load-confirm" disabled> <span data-i18n="video.load_confirm">Confirm OCR label is the exercise load</span></label>
                             </div>
                         </div>
                         <button id="btn-analyze-video" class="btn btn-primary btn-full" disabled>
-                            <span class="btn-icon" data-icon="sparkles"></span> Phân tích video
+                            <span class="btn-icon" data-icon="sparkles"></span> <span data-i18n="video.analyze">Analyze Video</span>
                         </button>
                         <div id="analysis-progress" class="analysis-progress" hidden>
                             <div class="progress-track"><span id="analysis-progress-bar"></span></div>
-                            <span id="analysis-progress-label">Đang chuẩn bị model...</span>
+                            <span id="analysis-progress-label" data-i18n="video.preparing_model">Preparing model...</span>
                         </div>
                         <div id="analysis-status" class="analysis-status" role="status" aria-live="polite">
-                            Chọn một video có đủ toàn thân và ánh sáng ổn định để bắt đầu.
+                            <span data-i18n="video.status_hint">Choose a video with full body visible and stable lighting to get started.</span>
                         </div>
                     </section>
                     <section id="analysis-results" class="analysis-results" hidden>
                         <div class="analysis-result-header">
                             <div>
-                                <span class="eyebrow">KẾT QUẢ AI</span>
-                                <h2 id="analysis-exercise-name">Chưa có kết quả</h2>
+                                <span class="eyebrow" data-i18n="video.result_heading">AI RESULT</span>
+                                <h2 id="analysis-exercise-name" data-i18n="video.no_result">No results yet</h2>
                             </div>
                             <span id="analysis-confidence" class="confidence-badge">--</span>
                         </div>
                         <div class="analysis-stat-grid">
-                            <div class="analysis-stat"><span class="analysis-stat-label">Reps</span><strong id="analysis-reps">--</strong></div>
-                            <div class="analysis-stat"><span class="analysis-stat-label">Sets ước tính</span><strong id="analysis-sets">--</strong></div>
-                            <div class="analysis-stat"><span class="analysis-stat-label">Tạ</span><strong id="analysis-weight-result">--</strong></div>
-                            <div class="analysis-stat"><span class="analysis-stat-label">Calo ước tính</span><strong id="analysis-calories">--</strong></div>
+                            <div class="analysis-stat"><span class="analysis-stat-label" data-i18n="video.reps">Reps</span><strong id="analysis-reps">--</strong></div>
+                            <div class="analysis-stat"><span class="analysis-stat-label" data-i18n="video.sets_est">Sets (est.)</span><strong id="analysis-sets">--</strong></div>
+                            <div class="analysis-stat"><span class="analysis-stat-label" data-i18n="video.load">Load</span><strong id="analysis-weight-result">--</strong></div>
+                            <div class="analysis-stat"><span class="analysis-stat-label" data-i18n="video.calories_est">Calories (est.)</span><strong id="analysis-calories">--</strong></div>
                         </div>
                         <div class="analysis-detail-list">
-                            <div><span>Thời gian vận động</span><strong id="analysis-active-time">--</strong></div>
-                            <div><span>Độ phủ pose</span><strong id="analysis-pose-coverage">--</strong></div>
-                            <div><span>Phạm vi AI</span><strong id="analysis-scope">--</strong></div>
-                            <div><span>Nguồn kg</span><strong id="analysis-weight-source">--</strong></div>
-                            <div><span>Bằng chứng kg</span><strong id="analysis-weight-confidence">--</strong></div>
-                            <div><span>Nguồn cân nặng</span><strong id="analysis-body-weight-source">--</strong></div>
-                            <div><span>Công thức kcal</span><strong id="analysis-calorie-source">--</strong></div>
+                            <div><span data-i18n="video.active_time">Active Time</span><strong id="analysis-active-time">--</strong></div>
+                            <div><span data-i18n="video.pose_coverage">Pose Coverage</span><strong id="analysis-pose-coverage">--</strong></div>
+                            <div><span data-i18n="video.ai_scope">AI Scope</span><strong id="analysis-scope">--</strong></div>
+                            <div><span data-i18n="video.weight_source">Weight Source</span><strong id="analysis-weight-source">--</strong></div>
+                            <div><span data-i18n="video.weight_evidence">Weight Evidence</span><strong id="analysis-weight-confidence">--</strong></div>
+                            <div><span data-i18n="video.body_weight_src">Body Weight Source</span><strong id="analysis-body-weight-source">--</strong></div>
+                            <div><span data-i18n="video.calorie_formula">Calorie Formula</span><strong id="analysis-calorie-source">--</strong></div>
                         </div>
                         <div class="analysis-review-grid">
                             <div class="form-group">
-                                <label for="analysis-exercise-review">Bài tập xác nhận</label>
+                                <label for="analysis-exercise-review" data-i18n="video.review_exercise">Exercise Review</label>
                                 <select id="analysis-exercise-review" class="form-select">
-                                    <option value="__auto__">Giữ kết quả AI</option>
+                                    <option value="__auto__" data-i18n="video.review_keep_ai">Keep AI result</option>
                                 </select>
-                                <small>Chọn lại nếu góc quay làm AI chưa chắc chắn.</small>
+                                <small data-i18n="video.review_exercise_hint">Re-select if camera angle makes AI uncertain.</small>
                             </div>
                             <div class="form-group">
-                                <label for="analysis-reps-review">Reps xác nhận</label>
-                                <input type="number" id="analysis-reps-review" min="1" max="1000" step="1" placeholder="AI chưa đếm được">
-                                <small>Chỉ sửa khi số reps hiển thị chưa đúng.</small>
+                                <label for="analysis-reps-review" data-i18n="video.review_reps">Reps Review</label>
+                                <input type="number" id="analysis-reps-review" min="1" max="1000" step="1">
+                                <small data-i18n="video.review_reps_hint">Only edit when the displayed reps count is wrong.</small>
                             </div>
                         </div>
                         <div id="analysis-warning" class="analysis-warning"></div>
                         <button id="btn-save-analysis" class="btn btn-secondary btn-full" disabled>
-                            <span class="btn-icon" data-icon="save"></span> Lưu vào nhật ký
+                            <span class="btn-icon" data-icon="save"></span> <span data-i18n="video.save_to_journal">Save to Journal</span>
                         </button>
                         <button id="btn-export-analysis" class="btn btn-secondary btn-full" disabled>
-                            Xuất báo cáo JSON audit
+                            <span data-i18n="video.export_audit">Export Audit Report</span>
                         </button>
                     </section>
                 </div>
                 <div class="analysis-note">
-                    <strong>Giới hạn đo lường:</strong> pose model dùng để nhận diện chuyển động và đếm reps; điểm AI là heuristic chưa calibration, không phải xác suất chính xác. OCR chỉ đọc được kg/lb khi nhãn hiển thị đủ rõ và lặp lại trên nhiều frame. Nếu không có nhãn, GymLab giữ `Chưa xác định` thay vì bịa số kg. Kcal là ước tính theo MET, không thay thế thiết bị đo sinh lý.
+                    <strong data-i18n="video.measurement_limits">Measurement Limits:</strong>
+                    <span data-i18n="video.measurement_limits_text">Pose model detects motion and counts reps; AI score is a heuristic (not calibrated probability). OCR reads kg/lb only when labels are clear and repeat across multiple frames. Without labels, GymLab keeps "Unknown" instead of fabricating kg values. kcal is estimated per MET, not a physiological measurement.</span>
                 </div>
             </div>
             <!-- ADD -->
             <div id="page-add" class="page">
-                <header class="page-header"><h1>Thêm buổi tập</h1></header>
+                <header class="page-header"><h1 data-i18n="add.title">Add Workout</h1></header>
                 <div class="form-card">
-                    <div class="form-group"><label>Nhóm bài tập</label><div id="category-chips" class="chip-group"></div></div>
-                    <div class="form-group"><label>Bài tập</label><div id="exercise-list" class="exercise-select"></div></div>
+                    <div class="form-group"><label data-i18n="add.exercise_group">Exercise Group</label><div id="category-chips" class="chip-group"></div></div>
+                    <div class="form-group"><label data-i18n="add.exercise">Exercise</label><div id="exercise-list" class="exercise-select"></div></div>
                     <div class="form-row">
-                        <div class="form-group"><label>Sets</label><input type="number" id="input-sets" value="3" min="1" max="100"></div>
-                        <div class="form-group"><label>Reps</label><input type="number" id="input-reps" value="10" min="1" max="1000"></div>
-                        <div class="form-group"><label>kg</label><input type="number" id="input-weight" value="50" min="0" max="500" step="0.5"></div>
+                        <div class="form-group"><label data-i18n="add.sets">Sets</label><input type="number" id="input-sets" value="3" min="1" max="100"></div>
+                        <div class="form-group"><label data-i18n="add.reps">Reps</label><input type="number" id="input-reps" value="10" min="1" max="1000"></div>
+                        <div class="form-group"><label data-i18n="add.weight_kg">kg</label><input type="number" id="input-weight" value="50" min="0" max="500" step="0.5"></div>
                     </div>
-                    <div class="form-group"><label>Thời gian (phút)</label><input type="number" id="input-duration" value="30" min="0" max="300"></div>
-                    <div class="form-group"><label>Ghi chú</label><textarea id="input-notes" rows="2" placeholder="Ghi chú..."></textarea></div>
-                    <div class="preview-card"><div class="preview-label">Ước tính calo</div><div class="preview-value" id="preview-calories">0</div><div class="preview-sub">kcal</div></div>
-                    <button id="btn-save" aria-label="Lưu buổi tập" class="btn btn-primary btn-full"><span class="btn-icon" data-icon="save"></span> Lưu buổi tập</button>
-                    <button id="btn-save-template" aria-label="Lưu làm template" class="btn btn-secondary btn-full" style="margin-top:8px"><span class="btn-icon" data-icon="bookmark"></span> Lưu làm template</button>
+                    <div class="form-group"><label data-i18n="add.duration">Duration (minutes)</label><input type="number" id="input-duration" value="30" min="0" max="300"></div>
+                    <div class="form-group"><label data-i18n="add.notes">Notes</label><textarea id="input-notes" rows="2" data-i18n-placeholder="add.notes_placeholder"></textarea></div>
+                    <div class="preview-card"><div class="preview-label" data-i18n="add.calorie_estimate">Calorie Estimate</div><div class="preview-value" id="preview-calories">0</div><div class="preview-sub">kcal</div></div>
+                    <button id="btn-save" aria-label="Save workout" class="btn btn-primary btn-full"><span class="btn-icon" data-icon="save"></span> <span data-i18n="add.save">Save Workout</span></button>
+                    <button id="btn-save-template" aria-label="Save as template" class="btn btn-secondary btn-full" style="margin-top:8px"><span class="btn-icon" data-icon="bookmark"></span> <span data-i18n="add.save_template">Save as Template</span></button>
                 </div>
-                <div class="section" style="margin-top:20px"><h2>Templates nhanh</h2><div id="template-list" class="workout-list"></div></div>
+                <div class="section" style="margin-top:20px"><h2 data-i18n="add.quick_templates">Quick Templates</h2><div id="template-list" class="workout-list"></div></div>
             </div>
             <!-- HISTORY -->
             <div id="page-history" class="page">
-                <header class="page-header"><h1>Lịch sử</h1></header>
+                <header class="page-header"><h1 data-i18n="history.title">History</h1></header>
                 <div class="filter-bar" id="history-filters"></div>
                 <div id="history-list" class="workout-list"></div>
             </div>
             <!-- STATS -->
             <div id="page-stats" class="page">
-                <header class="page-header"><h1>Thống kê</h1></header>
+                <header class="page-header"><h1 data-i18n="stats.title">Stats</h1></header>
                 <div class="filter-bar" id="stats-filters"></div>
                 <div class="stats-overview" id="stats-overview"></div>
-                <div class="chart-container"><h3>Calo theo ngày</h3><canvas id="chart-calories"></canvas></div>
-                <div class="chart-container"><h3>Phân bổ bài tập</h3><canvas id="chart-distribution"></canvas></div>
+                <div class="chart-container"><h3 data-i18n="stats.cal_by_day">Calories by Day</h3><canvas id="chart-calories" role="img" aria-label="Calories bar chart"></canvas></div>
+                <div class="chart-container"><h3 data-i18n="stats.exercise_dist">Exercise Distribution</h3><canvas id="chart-distribution" role="img" aria-label="Exercise distribution pie chart"></canvas></div>
                 <div class="chart-container">
-                    <h3>Tiến bộ bài tập</h3>
+                    <h3 data-i18n="stats.exercise_progress">Exercise Progress</h3>
+                    <label for="exercise-select-progress" class="sr-only">Select exercise</label>
                     <select id="exercise-select-progress" class="form-select"></select>
-                    <canvas id="chart-exercise-progress"></canvas>
+                    <canvas id="chart-exercise-progress" role="img" aria-label="Exercise progress line chart"></canvas>
                 </div>
             </div>
             <!-- PERSONAL RECORDS -->
             <div id="page-records" class="page">
-                <header class="page-header"><h1>Kỷ lục cá nhân</h1></header>
+                <header class="page-header"><h1 data-i18n="records.title">Personal Records</h1></header>
                 <div id="records-list" class="workout-list"></div>
             </div>
             <!-- BODY WEIGHT -->
             <div id="page-weight" class="page">
-                <header class="page-header"><h1>Cân nặng</h1></header>
+                <header class="page-header"><h1 data-i18n="weight.title">Body Weight</h1></header>
                 <div class="form-card">
                     <div class="form-row">
-                        <div class="form-group"><label>Cân nặng (kg)</label><input type="number" id="input-bw" value="70" min="20" max="300" step="0.1"></div>
-                        <div class="form-group" style="display:flex;align-items:flex-end"><button id="btn-log-bw" aria-label="Ghi nhận cân nặng" class="btn btn-primary btn-full">Ghi nhận</button></div>
+                        <div class="form-group"><label data-i18n="weight.weight_kg">Weight (kg)</label><input type="number" id="input-bw" value="70" min="20" max="300" step="0.1"></div>
+                        <div class="form-group" style="display:flex;align-items:flex-end"><button id="btn-log-bw" aria-label="Log body weight" class="btn btn-primary btn-full"><span data-i18n="weight.log">Log</span></button></div>
                     </div>
                 </div>
-                <div class="chart-container"><h3>Cân nặng theo ngày</h3><canvas id="chart-bodyweight"></canvas></div>
-                <div class="section"><h2>Lịch sử cân nặng</h2><div id="bw-history" class="workout-list"></div></div>
+                <div class="chart-container"><h3 data-i18n="weight.chart_title">Weight Over Time</h3><canvas id="chart-bodyweight" role="img" aria-label="Body weight chart"></canvas></div>
+                <div class="section"><h2 data-i18n="weight.history">Weight History</h2><div id="bw-history" class="workout-list"></div></div>
             </div>
             <!-- SETTINGS -->
             <div id="page-settings" class="page">
-                <header class="page-header"><h1>Cài đặt</h1></header>
+                <header class="page-header"><h1 data-i18n="settings.title">Settings</h1></header>
                 <div class="form-card">
-                    <div class="form-group"><label>Tên</label><input type="text" id="input-username" placeholder="Tên..."></div>
-                    <div class="form-group"><label>Cân nặng (kg)</label><input type="number" id="input-bodyweight" value="70" min="20" max="300" step="0.5"><small>Tính calories theo ACSM</small></div>
-                    <button id="btn-save-settings" aria-label="Lưu cài đặt" class="btn btn-primary">Lưu</button>
-                    <button id="btn-ai-diagnostics" aria-label="Chạy kiểm tra AI local" class="btn btn-secondary btn-full" style="margin-top:8px">Chạy kiểm tra AI local</button>
-                    <small>Kiểm tra pose model và OCR ngay trên thiết bị; không tải dữ liệu lên máy chủ.</small>
+                    <div class="form-group"><label data-i18n="settings.name">Name</label><input type="text" id="input-username" data-i18n-placeholder="settings.name_placeholder"></div>
+                    <div class="form-group"><label data-i18n="settings.body_weight">Body Weight (kg)</label><input type="number" id="input-bodyweight" value="70" min="20" max="300" step="0.5"><small data-i18n="settings.body_weight_hint">Calorie calculation per ACSM</small></div>
+                    <div class="form-group">
+                        <label data-i18n="settings.language">Language</label>
+                        <select id="input-language" class="form-select">
+                            <option value="en">English</option>
+                            <option value="vi">Tiếng Việt</option>
+                        </select>
+                    </div>
+                    <button id="btn-save-settings" aria-label="Save settings" class="btn btn-primary" data-i18n="settings.save">Save</button>
+                    <button id="btn-ai-diagnostics" aria-label="Run AI diagnostics" class="btn btn-secondary btn-full" style="margin-top:8px"><span data-i18n="settings.run_diagnostics">Run AI Diagnostics</span></button>
+                    <small data-i18n="settings.diagnostics_hint">Test pose model and OCR locally; no data uploaded.</small>
                 </div>
             </div>
         </main>
@@ -199,10 +211,10 @@
         <div id="rest-timer" class="rest-timer hidden">
             <div class="timer-ring"><svg viewBox="0 0 120 120"><circle class="timer-bg" cx="60" cy="60" r="54"/><circle class="timer-progress" id="timer-circle" cx="60" cy="60" r="54"/></svg><div class="timer-text" id="timer-display">0:00</div></div>
             <div class="timer-controls">
-                <button class="timer-btn" id="timer-minus" data-icon="minus"></button>
-                <button class="timer-btn primary" id="timer-toggle" data-icon="play"></button>
-                <button class="timer-btn" id="timer-plus" data-icon="plus"></button>
-                <button class="timer-btn" id="timer-reset" data-icon="reset"></button>
+                <button class="timer-btn" id="timer-minus" data-icon="minus" aria-label="Decrease time"></button>
+                <button class="timer-btn primary" id="timer-toggle" data-icon="play" aria-label="Play/Pause timer"></button>
+                <button class="timer-btn" id="timer-plus" data-icon="plus" aria-label="Increase time"></button>
+                <button class="timer-btn" id="timer-reset" data-icon="reset" aria-label="Reset timer"></button>
             </div>
             <div class="timer-presets">
                 <button class="chip" data-sec="30">30s</button>
@@ -215,6 +227,7 @@
         <!-- Timer FAB -->
         <button id="timer-fab" aria-label="Rest Timer" class="timer-fab hidden" data-icon="timer"></button>
     </div>
+    <script src="js/i18n.js"></script>
     <script src="js/icons.js"></script>
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
