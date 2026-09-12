@@ -1,0 +1,11 @@
+{
+  "synthetic_example": true,
+  "samples": [
+    {
+      "id": "fixture-squat-60kg",
+      "file": "pose_squats_60kg.webm",
+      "body_weight_kg": 82.5,
+      "weight_kg": 60
+    }
+  ]
+}

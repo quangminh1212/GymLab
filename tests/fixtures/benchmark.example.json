@@ -1,0 +1,44 @@
+{
+  "manifest_version": 1,
+  "synthetic_example": true,
+  "samples": [
+    {
+      "id": "example-squat-01",
+      "subject_id": "subject-a",
+      "camera_id": "camera-a",
+      "ground_truth": {
+        "exercise": "squat",
+        "reps": 10,
+        "load_kg": 60,
+        "active_seconds": 30,
+        "met": 6,
+        "body_weight_kg": 82.5
+      },
+      "prediction": {
+        "exercise": "squat",
+        "reps": 9,
+        "load_kg": 60,
+        "active_seconds": 31,
+        "calories": 4.125,
+        "pose_coverage": 0.98
+      }
+    },
+    {
+      "id": "example-push-up-01",
+      "subject_id": "subject-b",
+      "camera_id": "camera-b",
+      "ground_truth": {
+        "exercise": "push_up",
+        "reps": 8,
+        "active_seconds": 20
+      },
+      "prediction": {
+        "exercise": "unknown",
+        "reps": null,
+        "load_kg": null,
+        "active_seconds": 22,
+        "pose_coverage": 0.72
+      }
+    }
+  ]
+}

@@ -1,11 +1,14 @@
 {
   "name": "gym-lab",
   "version": "1.0.0",
+  "type": "module",
   "description": "GymLab - Gym Journal & Calorie Tracker (Tauri + WebView)",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "test:video-core": "node tests/video-analysis-core.test.mjs",
+    "test:video-e2e": "python tests/video-analysis-e2e.py"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

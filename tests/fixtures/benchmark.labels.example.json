@@ -1,0 +1,19 @@
+{
+  "synthetic_example": true,
+  "samples": [
+    {
+      "id": "fixture-squat-60kg",
+      "file": "pose_squats_60kg.webm",
+      "subject_id": "synthetic-subject-01",
+      "camera_id": "synthetic-camera-a",
+      "ground_truth": {
+        "exercise": "squat",
+        "reps": 2,
+        "load_kg": 60,
+        "active_seconds": 8.94805194805195,
+        "met": 6,
+        "body_weight_kg": 82.5
+      }
+    }
+  ]
+}

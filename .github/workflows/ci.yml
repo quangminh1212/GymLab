@@ -45,6 +45,23 @@ jobs:
           node --check src/js/app.js && echo "app.js: OK"
           node --check src/js/api.js && echo "api.js: OK"
           node --check src/js/icons.js && echo "icons.js: OK"
+          node --check src/js/video-analysis-core.js && echo "video-analysis-core.js: OK"
+          node --check src/js/video-analysis.js && echo "video-analysis.js: OK"
+          node tests/video-analysis-core.test.mjs
+          python3 -m py_compile tests/video-analysis-e2e.py tests/packaged-video-smoke.py tests/collect_benchmark_audits.py tests/generate_weight_fixture.py tests/evaluate_benchmark.py tests/test_evaluate_benchmark.py tests/prepare_benchmark_manifest.py tests/test_prepare_benchmark_manifest.py tests/prepare_profile_labels.py tests/test_prepare_profile_labels.py tests/train_profile_model.py tests/test_train_profile_model.py tests/promote_profile_model.py tests/test_promote_profile_model.py
+          python3 tests/test_evaluate_benchmark.py
+          python3 tests/test_prepare_benchmark_manifest.py
+          python3 tests/test_prepare_profile_labels.py
+          python3 tests/test_train_profile_model.py
+          python3 tests/test_promote_profile_model.py
+      - name: Validate local inference assets
+        run: |
+          test -f src/models/pose_landmarker_lite.task
+          test -f src/models/tessdata/eng.traineddata.gz
+          test -f src/vendor/mediapipe/vision_bundle.mjs
+          test -f src/vendor/tesseract/worker.min.js
+          echo "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a  src/models/pose_landmarker_lite.task" | sha256sum -c -
+          echo "ed350f3752f81ee8f38769edc14d92d997dababe23b565c59879372cc46a2468  src/models/tessdata/eng.traineddata.gz" | sha256sum -c -
       - name: Validate CSS
         run: |
           python3 -c "
@@ -71,3 +88,29 @@ jobs:
         run: npm install
       - name: Build
         run: cd src-tauri && cargo build --release
+
+  windows-release-smoke:
+    name: Windows packaged video smoke
+    needs: [rust, frontend]
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Install packaged smoke dependencies
+        run: python -m pip install playwright
+      - name: Install Playwright browser
+        run: python -m playwright install chromium
+      - name: Build Windows release bundles
+        run: npm run build
+      - name: Verify exact packaged video flow
+        run: python tests/packaged-video-smoke.py --port 9350
