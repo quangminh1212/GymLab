@@ -5,10 +5,13 @@
   "description": "GymLab - Gym Journal & Calorie Tracker (Tauri + WebView)",
   "scripts": {
     "tauri": "tauri",
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "dev": "python dev-server.py",
+    "build": "node tests/check-frontend-syntax.mjs",
+    "test": "node tests/video-analysis-core.test.mjs && python tests/benchmark_accuracy.py --min-accuracy 0.95",
+    "tauri:build": "tauri build",
     "test:video-core": "node tests/video-analysis-core.test.mjs",
-    "test:video-e2e": "python tests/video-analysis-e2e.py"
+    "test:video-e2e": "python tests/video-analysis-e2e.py",
+    "test:accuracy": "python tests/benchmark_accuracy.py --min-accuracy 0.95"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

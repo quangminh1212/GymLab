@@ -1,0 +1,81 @@
+{
+  "cases": 75,
+  "classification_accuracy": 0.96,
+  "rep_accuracy_within1": 1.0,
+  "rep_exact_accuracy": 1.0,
+  "duration_accuracy": 1.0,
+  "overall_accuracy": 0.99,
+  "min_required": 0.95,
+  "pass": true,
+  "per_exercise_pass_rate": {
+    "squat": 1.0,
+    "push_up": 1.0,
+    "bicep_curl": 1.0,
+    "overhead_press": 0.6667,
+    "deadlift": 1.0,
+    "barbell_row": 0.8333,
+    "pull_up": 1.0,
+    "tricep_dip": 1.0,
+    "lateral_raise": 1.0,
+    "calf_raise": 1.0,
+    "plank": 1.0,
+    "mountain_climbers": 1.0,
+    "burpees": 1.0
+  },
+  "failures": [
+    {
+      "case": "overhead_press/noise",
+      "predicted": "unknown",
+      "top3": [
+        "overhead_press=0.772",
+        "pull_up=0.711",
+        "bicep_curl=0.492"
+      ],
+      "reps_low/high": [
+        0,
+        8
+      ],
+      "gt_reps": 8,
+      "duration": [
+        23.6,
+        23.8
+      ]
+    },
+    {
+      "case": "overhead_press/rest",
+      "predicted": "unknown",
+      "top3": [
+        "overhead_press=0.839",
+        "pull_up=0.792",
+        "bicep_curl=0.671"
+      ],
+      "reps_low/high": [
+        0,
+        8
+      ],
+      "gt_reps": 8,
+      "duration": [
+        22.8,
+        23.8
+      ]
+    },
+    {
+      "case": "barbell_row/noise",
+      "predicted": "unknown",
+      "top3": [
+        "barbell_row=0.434",
+        "push_up=0.370",
+        "bicep_curl=0.232"
+      ],
+      "reps_low/high": [
+        8,
+        8
+      ],
+      "gt_reps": 8,
+      "duration": [
+        22.8,
+        23.8
+      ]
+    }
+  ]
+}

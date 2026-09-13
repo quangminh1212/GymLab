@@ -271,9 +271,10 @@ export function classifyExercise(samples, profileModel = null) {
     const scores = {
         squat: clamp(kneeAmplitude / 55, 0, 1)
             * (0.7 + clamp(torsoRatio / 1.5, 0, 0.3))
-            * (1 - horizontalPoseRatio * 0.75),
+            * (1 - horizontalPoseRatio * 0.75)
+            * (1 - clamp(hipAmplitude / 80, 0, 1) * 0.4),
         push_up: clamp(elbowAmplitude / 70, 0, 1)
-            * (0.6 + horizontalPoseRatio * 0.4),
+            * (0.15 + horizontalPoseRatio * 0.85),
         bicep_curl: clamp(elbowAmplitude / 75, 0, 1)
             * (0.65 + (1 - overheadRatio) * 0.35)
             * (0.35 + verticalPoseRatio * 0.65)
@@ -284,17 +285,21 @@ export function classifyExercise(samples, profileModel = null) {
             * (1 - lowerBodyMotion * 0.75),
         overhead_press: clamp(wristAmplitude / 0.25, 0, 1)
             * (0.55 + overheadRatio * 0.45)
-            * (1 - lowerBodyMotion * 0.75),
+            * (1 - lowerBodyMotion * 0.75)
+            * (1 - clamp(wristSpanAmplitude / 0.5, 0, 1) * 0.8),
         deadlift: clamp(hipAmplitude / 55, 0, 1)
             * (0.55 + clamp(torsoRatio, 0, 1) * 0.45)
-            * (1 - clamp(elbowAmplitude / 70, 0, 1) * 0.3),
-        barbell_row: clamp(hipAmplitude / 55, 0, 1)
-            * clamp(elbowAmplitude / 70, 0, 1)
+            * (1 - clamp(elbowAmplitude / 70, 0, 1) * 0.3)
+            * (1 - clamp(kneeAmplitude / 75, 0, 1) * 0.45),
+        barbell_row: clamp(elbowAmplitude / 70, 0, 1)
             * (0.5 + rowPosture * 0.5)
-            * (1 - overheadRatio),
+            * (1 - overheadRatio)
+            * (0.35 + clamp(hipAmplitude / 55, 0, 1) * 0.65)
+            * (0.55 + clamp((0.62 - Math.abs(torsoRatio - 0.5)) / 0.62, 0, 1) * 0.45),
         pull_up: clamp(elbowAmplitude / 75, 0, 1)
             * (0.45 + overheadRatio * 0.55)
-            * verticalPoseRatio,
+            * verticalPoseRatio
+            * (0.7 + clamp(wristAmplitude / 0.2, 0, 1) * 0.3),
         tricep_dip: clamp(elbowAmplitude / 75, 0, 1)
             * verticalPoseRatio
             * (0.55 + wristsBelowShoulderRatio * 0.45)
@@ -310,7 +315,9 @@ export function classifyExercise(samples, profileModel = null) {
             * (1 - clamp(hipAmplitude / 45, 0, 1) * 0.8),
         plank: horizontalPoseRatio
             * (0.65 + horizontalStillness * 0.35)
-            * (1 - clamp(wristAmplitude / 0.3, 0, 1) * 0.25),
+            * (1 - clamp(wristAmplitude / 0.3, 0, 1) * 0.25)
+            * (1 - clamp(kneeAmplitude / 40, 0, 1) * 0.55)
+            * (1 - clamp(elbowAmplitude / 40, 0, 1) * 0.55),
         mountain_climbers: horizontalPoseRatio
             * clamp(kneeAmplitude / 55, 0, 1)
             * (0.55 + clamp(hipAmplitude / 55, 0, 1) * 0.45),
@@ -422,6 +429,7 @@ export function estimateSetCount(samples, movementThreshold = 7, restGapSeconds 
             [current?.knee_angle, previous?.knee_angle],
             [current?.elbow_angle, previous?.elbow_angle],
             [current?.hip_angle, previous?.hip_angle],
+            [current?.ankle_angle, previous?.ankle_angle],
         ]
             .filter(([left, right]) => Number.isFinite(left) && Number.isFinite(right))
             .map(([left, right]) => Math.abs(left - right));
@@ -463,6 +471,8 @@ export function estimateActiveDuration(samples, totalDuration, movementThreshold
             difference(current?.hip_angle, previous?.hip_angle),
             difference(current?.wrist_height, previous?.wrist_height, 180),
             difference(current?.hip_height, previous?.hip_height, 180),
+            difference(current?.ankle_angle, previous?.ankle_angle),
+            difference(current?.wrist_span, previous?.wrist_span, 180),
         ].filter(Number.isFinite);
         const movementScore = movement.length ? Math.max(...movement) : 0;
         if (movementScore >= movementThreshold) activeSeconds += interval;
