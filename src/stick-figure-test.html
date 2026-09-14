@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GymLab - Stick Figure Overlay Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #00ff88;
+        }
+        
+        .video-section {
+            position: relative;
+            background: #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        video {
+            width: 100%;
+            display: block;
+        }
+        
+        #stick-figure-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #00ff88;
+            color: #000;
+        }
+        
+        .btn-primary:hover {
+            background: #00cc6a;
+        }
+        
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+        }
+        
+        .btn-secondary:hover {
+            background: #444;
+        }
+        
+        .btn-active {
+            background: #ff6b6b;
+        }
+        
+        .status {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #333;
+            padding: 5px 0;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .label {
+            color: #888;
+        }
+        
+        .value {
+            color: #00ff88;
+        }
+        
+        .legend {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .legend h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        
+        .legend-text {
+            font-size: 12px;
+            color: #ccc;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #333;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .file-label:hover {
+            background: #444;
+        }
+        
+        .info {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #888;
+        }
+        
+        .info h3 {
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        
+        .info code {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏋️ GymLab Stick Figure Overlay</h1>
+        
+        <div class="controls">
+            <label class="file-label" for="video-input">
+                📁 Chọn Video
+            </label>
+            <input type="file" id="video-input" class="file-input" accept="video/*">
+            
+            <button id="btn-toggle" class="btn btn-primary">
+                👁️ Hiện Skeleton
+            </button>
+            
+            <button id="btn-angles" class="btn btn-secondary">
+                📐 Hiện Góc
+            </button>
+            
+            <button id="btn-labels" class="btn btn-secondary">
+                🏷️ Hiện Nhãn
+            </button>
+            
+            <button id="btn-analyze" class="btn btn-primary" disabled>
+                🔍 Phân Tích
+            </button>
+        </div>
+        
+        <div class="video-section">
+            <video id="video" controls playsinline>
+                <source src="" type="video/mp4">
+            </video>
+            <canvas id="stick-figure-overlay"></canvas>
+        </div>
+        
+        <div class="status" id="status">
+            <div class="status-item">
+                <span class="label">Video:</span>
+                <span class="value" id="status-video">Chưa chọn</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Skeleton:</span>
+                <span class="value" id="status-skeleton">Đang tắt</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Góc:</span>
+                <span class="value" id="status-angles">Đang bật</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Nhãn:</span>
+                <span class="value" id="status-labels">Đang tắt</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Pose Detection:</span>
+                <span class="value" id="status-pose">Chưa chạy</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Landmarks:</span>
+                <span class="value" id="status-landmarks">-</span>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <h3>🎨 Chú Giải Màu Sắc</h3>
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff88;"></div>
+                    <span class="legend-text">Thân (Torso)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff6b6b;"></div>
+                    <span class="legend-text">Tay trái</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff9f43;"></div>
+                    <span class="legend-text">Tay phải</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #54a0ff;"></div>
+                    <span class="legend-text">Chân trái</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #5f27cd;"></div>
+                    <span class="legend-text">Chân phải</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #feca57;"></div>
+                    <span class="legend-text">Mặt (Face)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff4757;"></div>
+                    <span class="legend-text">Góc (Angles)</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>📐 Các Góc Được Đo</h3>
+            <p>
+                <code>Gối L/R</code> - Góc giữa hông-gối-mắt cá (quan trọng cho squat, deadlift)<br>
+                <code>Khuỷu tay L/R</code> - Góc giữa vai-khuỷu-cổ tay (quan trọng cho bicep curl, push-up)<br>
+                <code>Hông L/R</code> - Góc giữa vai-hông-gối (quan trọng cho deadlift, squat form)
+            </p>
+            <br>
+            <p style="color: #666;">
+                💡 Mẹo: Bật <code>Nhãn</code> để thấy tên các điểm landmark. 
+                Video nên quay toàn thân, đủ sáng để pose detection hoạt động tốt nhất.
+            </p>
+        </div>
+    </div>
+    
+    <script src="js/stick-figure-overlay.js"></script>
+    <script>
+        // MediaPipe imports (giả lập cho test standalone)
+        // Trong production, import từ vendor/mediapipe
+        
+        const video = document.getElementById('video');
+        const videoInput = document.getElementById('video-input');
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnAngles = document.getElementById('btn-angles');
+        const btnLabels = document.getElementById('btn-labels');
+        const btnAnalyze = document.getElementById('btn-analyze');
+        
+        // Status elements
+        const statusVideo = document.getElementById('status-video');
+        const statusSkeleton = document.getElementById('status-skeleton');
+        const statusAngles = document.getElementById('status-angles');
+        const statusLabels = document.getElementById('status-labels');
+        const statusPose = document.getElementById('status-pose');
+        const statusLandmarks = document.getElementById('status-landmarks');
+        
+        // Khởi tạo overlay
+        const overlay = new StickFigureOverlay();
+        overlay.init(video);
+        
+        // State
+        let isAnalyzing = false;
+        
+        // File input handler
+        videoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                video.src = url;
+                statusVideo.textContent = file.name;
+                btnAnalyze.disabled = false;
+            }
+        });
+        
+        // Toggle skeleton
+        btnToggle.addEventListener('click', () => {
+            const visible = overlay.toggle();
+            btnToggle.textContent = visible ? '👁️ Hiện Skeleton' : '👁️‍🗨️ Ẩn Skeleton';
+            btnToggle.classList.toggle('btn-active', !visible);
+            statusSkeleton.textContent = visible ? 'Đang bật' : 'Đang tắt';
+            statusSkeleton.style.color = visible ? '#00ff88' : '#ff6b6b';
+        });
+        
+        // Toggle angles
+        btnAngles.addEventListener('click', () => {
+            const show = overlay.toggleAngles();
+            btnAngles.classList.toggle('btn-active', show);
+            statusAngles.textContent = show ? 'Đang bật' : 'Đang tắt';
+            statusAngles.style.color = show ? '#00ff88' : '#ff6b6b';
+        });
+        
+        // Toggle labels
+        btnLabels.addEventListener('click', () => {
+            const show = overlay.toggleLabels();
+            btnLabels.classList.toggle('btn-active', show);
+            statusLabels.textContent = show ? 'Đang bật' : 'Đang tắt';
+            statusLabels.style.color = show ? '#00ff88' : '#ff6b6b';
+        });
+        
+        // Analyze button
+        btnAnalyze.addEventListener('click', async () => {
+            if (isAnalyzing) return;
+            
+            isAnalyzing = true;
+            btnAnalyze.disabled = true;
+            btnAnalyze.textContent = '⏳ Đang phân tích...';
+            statusPose.textContent = 'Đang chạy...';
+            statusPose.style.color = '#feca57';
+            
+            // Giả lập pose detection cho test
+            // Trong production, dùng PoseLandmarker từ MediaPipe
+            await simulatePoseDetection();
+            
+            isAnalyzing = false;
+            btnAnalyze.disabled = false;
+            btnAnalyze.textContent = '🔍 Phân Tích';
+        });
+        
+        // Giả lập pose detection (demo purposes)
+        async function simulatePoseDetection() {
+            const fps = 30;
+            const duration = video.duration || 5;
+            const totalFrames = Math.min(fps * duration, 150);
+            
+            statusPose.textContent = `Đang xử lý ${totalFrames} frames...`;
+            
+            for (let i = 0; i < totalFrames; i++) {
+                // Tạo fake landmarks cho demo
+                const landmarks = generateFakeLandmarks(i, totalFrames);
+                
+                // Render
+                overlay.render(landmarks);
+                statusLandmarks.textContent = `${landmarks.filter(l => l.visibility > 0.3).length} points`;
+                
+                // Chờ frame tiếp
+                await new Promise(r => setTimeout(r, 1000 / fps));
+            }
+            
+            statusPose.textContent = 'Hoàn tất';
+            statusPose.style.color = '#00ff88';
+        }
+        
+        // Tạo fake landmarks cho demo
+        function generateFakeLandmarks(frame, totalFrames) {
+            const progress = frame / totalFrames;
+            const t = progress * Math.PI * 2;
+            
+            // Base positions (normalized 0-1)
+            const base = {
+                x: 0.5,
+                y: 0.5
+            };
+            
+            // Tạo 33 landmarks với animation
+            return Array.from({ length: 33 }, (_, i) => {
+                // Offset khác nhau cho mỗi landmark
+                const angle = (i / 33) * Math.PI * 2 + t;
+                const radius = 0.1 + (i % 5) * 0.02;
+                
+                return {
+                    x: base.x + Math.cos(angle) * radius * (1 + Math.sin(t * 2) * 0.1),
+                    y: base.y + Math.sin(angle) * radius * (1 + Math.cos(t * 3) * 0.1),
+                    z: 0,
+                    visibility: 0.5 + Math.random() * 0.5
+                };
+            });
+        }
+        
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            overlay.destroy();
+        });
+    </script>
+</body>
+</html>

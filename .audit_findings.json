@@ -1,0 +1,587 @@
+[
+ {
+  "detail": "save_workouts (510), save_settings (541), save_templates (846), save_body_weight_log (956) đều gọi fs::write trực tiếp với `let _ = fs::write(...)` nuốt toàn bộ lỗi. Ghi file không nguyên tử (không tmp+rename, không fsync): crash/process-kill giữa chừng để lại workouts.json cụt, và mọi lỗi đĩa (đầy ổ cứng, quyền, antivirus lock trên Windows) đều im lặng — UI báo đã lưu nhưng file rỗng hoặc không đổi.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Ghi vào file tạm (workouts.json.tmp) rồi fs::sync_all + rename (atomic trên cùng volume NTFS); trả về Result để IPC báo lỗi cho frontend; cân nhắc file .bak một thế hệ trước khi ghi đè.",
+  "line": 510,
+  "severity": "BLOCKER",
+  "title": "Persistence JSON không atomic và nuốt lỗi ghi — mất dữ liệu toàn bộ khi crash giữa chừng",
+  "dim": ""
+ },
+ {
+  "detail": "serde_json::from_str(&data).unwrap_or_default() (491, 518, 840, 950): file hỏng (do BLOCKER trên, edit tay, hoặc số out-of-range) khiến toàn bộ lịch sử bị thay bằng vec![] trong bộ nhớ; lệnh add_workout/delete_workout kế tiếp save_workouts ghi đè file cũ bằng danh sách rỗng → dữ liệu gốc bị xóa vĩnh viễn, không prompt, không backup.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Load lỗi phải: (1) rename file hỏng thành workouts.json.corrupt-<ts> để giữ dữ liệu, (2) trả lỗi/surface toast cho người dùng thay vì âm thầm default, (3) không bao giờ save khi load vừa fail trừ khi user xác nhận.",
+  "line": 489,
+  "severity": "HIGH",
+  "title": "unwrap_or_default khi load JSON lỗi → file hỏng bị ghi đè bởi danh sách rỗng ở lần save kế tiếp",
+  "dim": ""
+ },
+ {
+  "detail": "days là i32 từ WebView, không clamp, không validate. Với days = 2_000_000_000: vòng lặp tạo 2 tỷ DailySummary (~24+ bytes mỗi phần tử, >40GB RAM → OOM) và mỗi vòng quét workouts 2 lần → treo app. days âm trả về rác. Đây là command IPC public — một bug frontend hoặc script lạ đủ làm chết app.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Clamp days: 1..=730 (hoặc .max(1).min(730)); trong vòng lặp dùng HashMap<NaiveDate, (f64, i32)> nhóm trước rồi mới duyệt, thay vì O(days × workouts) quét lặp.",
+  "line": 634,
+  "severity": "HIGH",
+  "title": "get_daily_calories nhận `days` không giới hạn — vòng lặp 0..days cấp phát không gian khổng lồ, treo/OOM app",
+  "dim": ""
+ },
+ {
+  "detail": "log_body_weight là command duy nhất nhận f64 người dùng mà không gọi validate_body_weight (so với set_body_weight có). NaN/-5/1e400 được push thẳng vào body_weight_log. f64 không finite serialize sai chuẩn JSON (null/garbage) → save_body_weight_log vẫn Ok hoặc ghi file không đọc lại được; lần load sau unwrap_or_default (finding #2) xóa sạch log cân nặng. Dữ liệu -5kg cũng làm hỏng biểu đồ frontend.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Thêm `let weight = validate_body_weight(weight);` đầu hàm (đã có sẵn hàm này, cùng chuẩn 20–300kg với set_body_weight).",
+  "line": 963,
+  "severity": "HIGH",
+  "title": "log_body_weight không validate weight — NaN/inf phá round-trip JSON và xóa sạch toàn bộ body_weight_log",
+  "dim": ""
+ },
+ {
+  "detail": "date_naive() trên DateTime<Utc> (641-644, 671, 710): workout lúc 00:00–06:59 giờ Việt Nam (= 17:00–23:59 UTC ngày hôm trước) bị gán nhầm sang ngày trước trong biểu đồ daily calories, active_days và distribution. Người dùng VN tập sáng sớm sẽ thấy calorie 'today' rỗng và hôm qua thừa. get_daily_calories cũng sinh khung ngày theo UTC midnight, lệch 7 tiếng so với ngày thực.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Nhóm theo ngày local: `w.date.with_timezone(&Local).date_naive()` và duyệt `Local::now()` (thêm dependency chrono-tz hoặc dùng chrono::Local). Hoặc lưu thêm trường local_date vào WorkoutEntry lúc add_workout.",
+  "line": 641,
+  "severity": "MEDIUM",
+  "title": "Nhóm ngày theo UTC thay vì múi giờ local — mọi buổi tập 00:00–06:59 sáng (UTC+7) bị tính sai ngày",
+  "dim": ""
+ },
+ {
+  "detail": "relog_from_template tạo entry với met_value: 6.0 cứng và duration_minutes: 0.0 cho mọi bài, kể cả running (MET 9.8) hay yoga (3.0). calories fallback sang công thức ước lượng sets×reps×3s thay vì MET thật, còn met_value lưu xuống file là con số bịa → thống kê/PR hiển thị sai vĩnh viễn trong data. exercise_name cũng rỗng nếu template chứa id lạ (save_template đã chấp nhận id lạ ở 871-874).",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Dùng find_exercise_checked(&ex.exercise_id) để lấy met thật, gán met_value = exercise.met; với id lạ thì trả Result Err thay vì tạo entry tên rỗng. Cân nhắc trả lỗi cho bài trống duration thay vì ước lượng ngầm.",
+  "line": 934,
+  "severity": "MEDIUM",
+  "title": "relog_from_template hardcode met_value 6.0 và duration 0.0 cho mọi exercise — MET sai lưu vĩnh viễn vào data",
+  "dim": ""
+ },
+ {
+  "detail": "Tất cả command đều .lock().unwrap() (590, 608, 616, 635...). Rust Mutex bị poison khi panic xảy ra trong lúc giữ lock — các chỗ partial_cmp().unwrap() (681, 815, 832) là nguồn panic tiềm năng trên dữ liệu bất thường. Một lần poison là mọi lệnh kế tiếp (kể cả add_workout đọc workouts) unwrap panic → app chết đứng toàn bộ cho đến khi restart, mất toàn bộ thao tác chưa save.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Đổi std::sync::Mutex sang parking_lot::Mutex (không poison) hoặc match PoisonError để recover state; thay tất cả partial_cmp().unwrap() bằng f64::total_cmp() (681, 815, 832) — an toàn với NaN và không panic.",
+  "line": 608,
+  "severity": "MEDIUM",
+  "title": "lock().unwrap() toàn bộ + unwrap trong partial_cmp — một panic làm poison mutex và đóng băng mọi command sau đó",
+  "dim": ""
+ },
+ {
+  "detail": "Tauri chạy sync command trên thread pool, hai lệnh có thể chạy song song. set_body_weight (747) và set_user_name (769) đọc body_weight và user_name qua hai Mutex riêng rồi mỗi bên tự dựng Settings hoàn chỉnh và ghi settings.json — kết quả last-writer-wins: file cuối có thể chứa user_name cũ (hoặc weight cũ) đọc trước khi lệnh kia cập nhật. Cùng pattern lặp lại ở log path: state.data_path.parent().unwrap().join(\"settings.json\") hardcode 4 lần thay vì dùng settings_file_path().",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Gom thành một Mutex<Settings> duy nhất (hoặc Mutex giữ struct Settings), cập nhật field rồi save một lần trong cùng critical section; thay các chuỗi .join(\"settings.json\") bằng settings_file_path(&app_dir) đã có sẵn.",
+  "line": 747,
+  "severity": "MEDIUM",
+  "title": "set_body_weight / set_user_name đọc state qua nhiều Mutex rồi tự ghi đè cả settings.json — race lost-update giữa 2 lệnh chạy song song",
+  "dim": ""
+ },
+ {
+  "detail": "save_template map exercise_ids với .unwrap_or_default() cho tên (874) và .unwrap_or(3)/.unwrap_or(10)/.unwrap_or(0.0) cho các mảng lệch độ dài (875-877): template rác (id không tồn tại, mảng dài hơn ids) được lưu im lặng, không Result Err. Sau này relog_from_template đẩy chính các entry này vào workouts → bản ghi tên rỗng, sets/reps mặc định không phải ý người dùng.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Đổi trả về Result<WorkoutTemplate, String>: find_exercise_checked từng id, sai thì Err; báo lỗi khi sets_list/reps_list/weights.len() != exercise_ids.len().",
+  "line": 871,
+  "severity": "LOW",
+  "title": "save_template chấp nhận exercise id không tồn tại và mảng lệch độ dài — im lặng tạo template có exercise_name rỗng, giá trị mặc định 3/10/0",
+  "dim": ""
+ },
+ {
+  "detail": "load_workouts bật weight_known=false bằng cách contains(\"weight_source=Chưa xác định từ video\") — logic dữ liệu phụ thuộc vào chuỗi hiển thị tiếng Việt trong notes. Nếu copy của UI đổi (hoặc người dùng tự sửa note), migration phân loại sai và dữ liệu legacy hiểu nhầm weight_known.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Thay bằng trường schema có version (ví dụ schema_version trong header file JSON) hoặc một flag kết cấu (không nằm trong notes tự do text).",
+  "line": 497,
+  "severity": "LOW",
+  "title": "Migration weight_known dựa vào khớp chuỗi tiếng Việt trong notes — dễ vỡ khi đổi copy UI",
+  "dim": ""
+ },
+ {
+  "detail": "bundle.icon chỉ có icons/icon.ico. Hexdump file 204 byte này: ICONDIR khai báo đúng 1 ảnh, IHDR 0x20x0x20 => 1 frame PNG 32x32. Đối chiếu source tauri-bundler: freedesktop/mod.rs bỏ qua mọi icon không phải .png (deb/rpm build qua nhưng không copy icon nào); appimage/linuxdeploy.rs panic .expect(\"couldn't find a square icon to use as AppImage icon\") khi không có PNG vuông. Với targets:\"all\" và release.yml có job ubuntu-22.04, build release Linux chắc chắn chết; Windows/macOS chỉ có icon 32x32 mờ ở hiển thị lớn (Explorer, dock retina).",
+  "file": "C:/Dev/GymLab/src-tauri/tauri.conf.json",
+  "fix": "Chuẩn bị logo PNG 1024x1024 rồi chạy `npx tauri icon` để sinh bộ đầy đủ (icon.ico đa size, icon.icns, 32x32.png, 128x128.png, 128x128@2x.png, 256x256.png, 512x512.png...) và cập nhật bundle.icon liệt kê tất cả các file đó.",
+  "line": 29,
+  "severity": "BLOCKER",
+  "title": "Bộ icon chỉ có 1 file .ico 32x32 — Linux/AppImage build fail, icon các platform đều low-res",
+  "dim": ""
+ },
+ {
+  "detail": "package.json:9 định nghĩa \"build\" = node tests/check-frontend-syntax.mjs (chỉ parse cú pháp JS, không compile Rust). Job windows-release-smoke trong ci.yml chạy step 'Build Windows release bundles' là `npm run build`, sau đó chạy packaged-video-smoke.py — script này line 67-68 SystemExit('release executable not found') nếu src-tauri/target/release/gym-lab.exe không tồn tại. Job không có bước cargo build nào => luôn fail. Tương tự 2 job 'Build (Windows)' (ci.yml:157) và 'Build (macOS)' (ci.yml:174) cũng chỉ chạy syntax gate nhưng tên gọi là Build, mâu thuẫn với CHANGELOG claiming 'build verification'.",
+  "file": "C:/Dev/GymLab/.github/workflows/ci.yml",
+  "fix": "Đổi step build thành `npm run tauri:build` (hoặc `cd src-tauri && cargo build --release`) trước khi chạy packaged-video-smoke.py; rename các job build-windows/build-macos nếu chỉ giữ syntax gate.",
+  "line": 198,
+  "severity": "HIGH",
+  "title": "CI job windows-release-smoke build rỗng — packaged-video-smoke luôn fail vì không có release exe",
+  "dim": ""
+ },
+ {
+  "detail": "bundle không khai báo windows.certificateThumbplate/nao skipWebviewInstall trong developer/installerTools, không có signingIdentity cho macOS, không có plugin updater hay endpoint. tauri-action trong release.yml chỉ ký khi có secrets tương ứng — hiện không có. Hệ quả: Windows SmartScreen cảnh báo 'Unknown publisher' cho mọi người tải, macOS Gatekeeper chặn mở app mặc định. Với mục tiêu phân phối quốc tế, đây là rào cản cài đặt chính với end-user.",
+  "file": "C:/Dev/GymLab/src-tauri/tauri.conf.json",
+  "fix": "Thêm cấu hình code signing (chứng chỉ Windows EV/OV + macOS Developer ID + notarize) qua secrets của tauri-action, và thêm updater plugin + endpoint nếu muốn cập nhật tự động; nếu chưa có chứng chỉ, tối thiểu công bố SHA-256 checksum của installer trong release notes.",
+  "line": 26,
+  "severity": "HIGH",
+  "title": "Không có code signing và updater — installer chưa ký sẽ bị SmartScreen/Gatekeeper chặn",
+  "dim": ""
+ },
+ {
+  "detail": "src/vendor/tesseract/tesseract.min.js:1 ghi rõ 'For license information please see tesseract.min.js.LICENSE.txt' nhưng file LICENSE.txt đó không tồn tại trong src/vendor/tesseract/. Apache-2.0 (cả MediaPipe lẫn Tesseract) yêu cầu kèm full license text khi redistribute (Section 4) — file THIRD_PARTY_NOTICES.md chỉ ghi 'See the upstream license', không kèm text. Ngoài ra Chart.js v4.4.7 (src/js/chart.min.js, MIT, đóng gói local — CI line 100 xác nhận) hoàn toàn vắng mặt trong THIRD_PARTY_NOTICES.md; chỉ được nhắc ở README Credits mà không nêu điều khoản.",
+  "file": "C:/Dev/GymLab/THIRD_PARTY_NOTICES.md",
+  "fix": "Kèm Apache-2.0 license text đầy đủ cho MediaPipe Tasks Vision và Tesseract.js/Core (copy tesseract.min.js.LICENSE.txt vào src/vendor/tesseract/), thêm mục Chart.js v4.4.7 (MIT) và kurkle/color vào THIRD_PARTY_NOTICES.md, và đưa file notices này vào installer.",
+  "line": 1,
+  "severity": "HIGH",
+  "title": "Thiếu license text Apache-2.0 khi redistribute MediaPipe/Tesseract; thiếu mục Chart.js; tesseract.min.js tham chiếu LICENSE.txt không tồn tại",
+  "dim": ""
+ },
+ {
+  "detail": "bundle section chỉ có active/targets/icon. Không có publisher, copyright, category, shortDescription/longDescription. Theo source tauri-bundler (debian.rs generate_control_file), khi thiếu authors+publisher, Maintainer của .deb rơi về fallback lấy segment giữa identifier => 'gymlab', không phải tên thật; MSI Manufacturer cũng chỉ là identifier. Bản quyền phần mềm không được ghi ở bất kỳ đâu trong metadata bundle (LICENSE dùng handle GitHub).",
+  "file": "C:/Dev/GymLab/src-tauri/tauri.conf.json",
+  "fix": "Thêm vào bundle: publisher (tên cá nhân/tổ chức hợp pháp), copyright (ví dụ 'Copyright (c) 2025 <tên thật>'), category (Fitness/Health), shortDescription/longDescription, và khai báo authors trong Cargo.toml để .deb Maintainer/MSI Manufacturer đúng.",
+  "line": 26,
+  "severity": "MEDIUM",
+  "title": "Thiếu bundle metadata: publisher, copyright, category, shortDescription — deb Maintainer rơi về 'gymlab' lấy từ identifier",
+  "dim": ""
+ },
+ {
+  "detail": "dev-server.py:9 khai báo PORT = 49152 (không có argv override) và in URL http://localhost:49152 khi chạy; nhưng README hướng dẫn 'python dev-server.py' rồi 'Mở http://localhost:8080'. Người dùng theo README sẽ mở trang trắng.",
+  "file": "C:/Dev/GymLab/README.md",
+  "fix": "Sửa README thành http://localhost:49152 (hoặc thêm argparse cho PORT và cập nhật cả hai).",
+  "line": 90,
+  "severity": "MEDIUM",
+  "title": "README ghi sai port dev server: 8080 trong khi dev-server.py lắng nghe 49152",
+  "dim": ""
+ },
+ {
+  "detail": "Cargo.lock pin tauri 2.11.5; tra crates.io API, tauri 2.11.5 khai báo rust_version (MSRV) = 1.77.2. README.md:74 và badge Rust 1.70+, CONTRIBUTING.md:11 đều ghi >= 1.70. Người có Rust 1.70-1.77 theo hướng dẫn cài sẽ không build được.",
+  "file": "C:/Dev/GymLab/README.md",
+  "fix": "Cập nhật yêu cầu thành Rust >= 1.77.2 (hoặc mới hơn) ở README, badge và CONTRIBUTING; cân nhắc khai báo rust-version trong Cargo.toml để lỗi hiện sớm.",
+  "line": 74,
+  "severity": "MEDIUM",
+  "title": "Yêu cầu Rust >= 1.70 sai thực tế — tauri 2.11.5 (Cargo.lock) yêu cầu MSRV 1.77.2",
+  "dim": ""
+ },
+ {
+  "detail": "Chính sách bảo mật viết 'please send an email to the project maintainer' nhưng không địa chỉ email nào được cung cấp trong SECURITY.md, README, CONTRIBUTING hay CHANGELOG (grep toàn bộ docs không thấy email). Báo cáo lỗ hổng theo chính sách này là không thực thi được.",
+  "file": "C:/Dev/GymLab/SECURITY.md",
+  "fix": "Thêm địa chỉ email bảo mật thực (hoặc GitHub Security Advisories / private vulnerability reporting) vào SECURITY.md, kèm cam kết thời gian phản hồi.",
+  "line": 5,
+  "severity": "MEDIUM",
+  "title": "SECURITY.md yêu cầu 'send an email' nhưng không có địa chỉ email nào — kênh báo lỗ hổng không dùng được",
+  "dim": ""
+ },
+ {
+  "detail": "README chỉ có hướng dẫn cho developer (clone, cargo tauri dev/build). Không có INSTALL.md hay mục hướng dẫn tải installer theo nền tảng, yêu cầu hệ thống (Windows cần WebView2 Runtime), cách verify checksum, cách gỡ cài đặt, và chỗ nào lấy dữ liệu cá nhân đang lưu (app data directory). Với sản phẩm 'chuẩn quốc tế' cho end-user thì thiếu trọn vẹn lớp tài liệu này.",
+  "file": "C:/Dev/GymLab/README.md",
+  "fix": "Thêm INSTALL.md (hoặc mục 'Install' trong README): link tải bản build theo OS, yêu cầu WebView2, hướng dẫn verify checksum, thư mục dữ liệu và sao lưu, uninstall; và trỏ tới THIRD_PARTY_NOTICES/LICENSE cho bản phân phối.",
+  "line": 96,
+  "severity": "MEDIUM",
+  "title": "Không có tài liệu cài đặt cho end-user — README chỉ là hướng dẫn build cho developer",
+  "dim": ""
+ },
+ {
+  "detail": "Số phiên bản lặp tay ở package.json:3, tauri.conf.json:4, Cargo.toml:3 và hard-code 'v1.0.0' trong sidebar index.html:33. Không có script/CI nào kiểm tra 4 chỗ này khớp nhau — phát hành 1.0.1 rất dễ quên một chỗ. i18n.js:180 định nghĩa key 'misc.version' (v{version}) nhưng không code nào dùng nó (grep toàn src/js không thấy usage ngoài định nghĩa).",
+  "file": "C:/Dev/GymLab/src/index.html",
+  "fix": "Đọc version lúc runtime qua getVersion() của @tauri-apps/api (hoặc tauri.conf) để render #version-label, dùng key misc.version đã có; thêm bước CI so khớp version giữa package.json / tauri.conf.json / Cargo.toml.",
+  "line": 33,
+  "severity": "LOW",
+  "title": "Version hard-code ở 4 nơi, i18n key 'misc.version' chết — không có cơ chế đồng bộ",
+  "dim": ""
+ },
+ {
+  "detail": "icons.json liệt kê icons/32x32.png, icons/128x128.png, icons/128x128@2x.png, icons/icon.icns — nhưng thư mục icons/ thực tế chỉ chứa icon.ico. File này không được tauri.conf.json hay build.rs tham chiếu (tauri build đọc tauri.conf.json, không đọc icons.json) nên là cấu hình chết gây hiểu nhầm rằng bộ icon đa size đã tồn tại.",
+  "file": "C:/Dev/GymLab/src-tauri/icons.json",
+  "fix": "Xóa icons.json, hoặc sau khi chạy `tauri icon` thì đồng bộ danh sách với tauri.conf.json và giữ một nguồn duy nhất.",
+  "line": 4,
+  "severity": "LOW",
+  "title": "icons.json tham chiếu 4 file icon không tồn tại (32x32.png, 128x128.png, 128x128@2x.png, icon.icns) — file cấu hình chết",
+  "dim": ""
+ },
+ {
+  "detail": "style-src cho phép https://fonts.googleapis.com và font-src cho phép https://fonts.gstatic.com, nhưng index.html không có <link> font nào và style.css dùng 'Inter' với fallback system-ui (không @import/@font-face). SECURITY.md tuyên bố 'No Cloud Dependencies' và 'Local-Only Assets'. Khoảng cho phép này là tàn dư: nếu sau này ai thêm Google Fonts thì app online-first claim bị phá; hiện tại chỉ là bề mặt thừa.",
+  "file": "C:/Dev/GymLab/src-tauri/tauri.conf.json",
+  "fix": "Xóa 2 origin fonts.googleapis.com/fonts.gstatic.com khỏi CSP để CSP khớp claim offline hoàn toàn; nếu muốn dùng Inter thì bundle font woff2 local.",
+  "line": 23,
+  "severity": "LOW",
+  "title": "CSP cho phép fonts.googleapis.com/fonts.gstatic.com nhưng không chỗ nào tải font — mâu thuẫn claim offline-first",
+  "dim": ""
+ },
+ {
+  "detail": "Copyright line ghi 'Copyright (c) 2024 quangminh1212' — dùng handle GitHub làm chủ thể bản quyền, và năm 2024 trong khi CHANGELOG 1.0.0 phát hành 2025-09-12. Với phân phối quốc tế, giấy phép nên đứng tên cá nhân/tổ chức hợp pháp và năm phát hành.",
+  "file": "C:/Dev/GymLab/LICENSE",
+  "fix": "Sửa thành tên hợp pháp và năm 2025 (hoặc 2024-2025); đồng bộ với publisher/copyright trong tauri.conf.json.",
+  "line": 5,
+  "severity": "LOW",
+  "title": "LICENSE ghi chủ thể bản quyền là handle GitHub 'quangminh1212', năm 2024 lệch với release 2025",
+  "dim": ""
+ },
+ {
+  "detail": "$schema trỏ về repo cá nhân github.com/nicholasgasior/tauri-config-schema thay vì schema chính thức (https://schema.tauri.app/config/2 hoặc URL do Tauri phát hành). Repo bên thứ ba có thể thay đổi/ biến mất, và không đảm bảo khớp schema Tauri 2.11 đang dùng. icons.json cũng trỏ schema từ nicegui.",
+  "file": "C:/Dev/GymLab/src-tauri/tauri.conf.json",
+  "fix": "Đổi $schema về nguồn chính thức của Tauri (schema.tauri.app) hoặc bỏ hẳn; icon do tauri CLI quản lý thì xóa icons.json kèm.",
+  "line": 2,
+  "severity": "LOW",
+  "title": "$schema trỏ tới repo cá nhân bên thứ ba thay vì schema chính thức của Tauri",
+  "dim": ""
+ },
+ {
+  "detail": "tauri.conf.json:23 dat CSP `script-src 'self'` (khong 'unsafe-inline'), con app.js render cac nut bang thuoc tinh onclick inline: quickRelog (184, 350), deleteWorkout (351), relogTemplate (288), deleteTemplate (292). CSP chan toan bo event handler inline, nen trong ban build dong goi cac nut re-log / xoa workout / template se khong phan ung, khong co loi hien thi. Day la chuc nang cot loi cua History va Templates.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Bo onclick inline, chuyen sang addEventListener hoac event delegation (listener tren container, doc id tu data-id). Giu nguyen CSP hien nay.",
+  "line": 184,
+  "severity": "BLOCKER",
+  "title": "Inline onclick bi CSP `script-src 'self'` chan — re-log, xoa workout, template deu chet trong app dong goi",
+  "dim": ""
+ },
+ {
+  "detail": "Ten template do nguoi dung nhap qua prompt() -> save_template -> get_templates -> duoc chen thang vao innerHTML qua ${t.name} ma khong escape. Chuoi nhu <img src=x onerror=...> trong ten template thanh stored XSS ton tai trong templates.json. Trong WebView Tauri co window.__TAURI__, XSS cho phep goi moi IPC command cua app. Cac field khac (exercise_name) den tu DB tinh nen an toan.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Them ham escapeHtml() ap dung cho moi interpolation noi dung nguoi dung (t.name la cho duy nhat co du lieu nguoi dung di vao innerHTML), hoac render template card bang DOM API/textContent.",
+  "line": 290,
+  "severity": "HIGH",
+  "title": "Stored XSS qua ten template render bang innerHTML",
+  "dim": ""
+ },
+ {
+  "detail": "Toan bo chuoi hien thi cua luong phan tich video la chuoi cung tieng Viet: setProgress (277, 355, 466, 510), setStatus (467, 473, 515, 581, 674, 853, 899), renderResult + warnings (687-770), option 'Giu ket qua AI' (391), bodyWeightSource (426-427), note luu workout (896), EXERCISE_PROFILES/FALLBACK_EXERCISES (47-87). He i18n da co san key 'video.*' day du trong i18n.js nhung video-analysis.js khong dung — vi du cu the: i18n co 'video.confidence_badge' nhung dong 687 hardcode 'Diem AI (uoc tinh)'. Nguoi dung English nhan UI nu Viet nu Anh; note luu vao workouts.json cung luon tieng Viet. Chan tieu chuan quoc te da dat (muc tieu du an la global release).",
+  "file": "C:/Dev/GymLab/src/js/video-analysis.js",
+  "fix": "Doi cac chuoi cứng sang _t(key, params) theo he co san; them key con thieu vao ca 2 bundle en/vi; chuoi xuat vao notes nen la machine-readable (khoa gia tri, khong phai text dich).",
+  "line": 687,
+  "severity": "HIGH",
+  "title": "Toan bo luong video analysis chua i18n — chuoi tieng Viet cung trong phan mem quoc te",
+  "dim": ""
+ },
+ {
+  "detail": "saveAnalysis() (886-902) goi window.gymLabInvoke truc tiep, khong qua safeInvoke: neu IPC fail hoac reject, loi la unhandled promise rejection tren click handler, khong co toast, khong hien thi trang thai, nguoi dung khong biet lieu da luu chua va co the bam Save lai tao ban ghi trung. Ngoai ra khong co guard double-submit: canSaveAnalysis chi kiem ket qua, khong disable nut trong luc await — bam nhanh 2 lan tao 2 ban ghi.",
+  "file": "C:/Dev/GymLab/src/js/video-analysis.js",
+  "fix": "Dung wrapper try/catch + setStatus/showToast loi; disable btn-save-analysis khi dang luu, bat lai khi xong; sau khi luu thanh cong co the gan lastResult = null hoac co flag daLuu de chan double-submit.",
+  "line": 888,
+  "severity": "HIGH",
+  "title": "saveAnalysis khong bat loi IPC va khong chong double-click — co the luu trung 2 ban ghi",
+  "dim": ""
+ },
+ {
+  "detail": "renderExercises thay innerHTML moi lan chon category (229), renderHistory thay innerHTML moi lan doi filter (339-353). Moi lan render, event cu bi GC cung DOM cu nen khong ro ri thuc su, nhung cac Chart object (calChart, distChart, progressChart, bwChart, exProgressChart) chi destroy khi vung cung duoc tao lai — Chart.js moi instance gan resize listener + rAF vao canvas; truong hop `if (dist.length > 0)` (402-404) va `if (history.length > 0)` (453-455): khi lan truoc co du lieu (chart da tao) va lan sau rong, chart cu duoc destroy dung, nhung khi `data.length === 0` tai 414 exProgressChart return sau destroy — OK. Diem that: khoi tao DOMContentLoaded (72-86) goi dong thoi loadHomePage + 7 setup*, moi navigation lai goi lai loaders; khong co nghien cang. Ket luan: khong tim thay memory leak thuc su o charts — moi duong tao deu destroy truoc khi gan lai. Khong bao finding leak; chi bao loi ti nng o muc LOW lien quan ben duoi.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Khong can fix leak (khong co). Neu muon do chat: dung chart.update()/chart.data thay vi destroy+new moi lan.",
+  "line": 396,
+  "severity": "LOW",
+  "title": "Cac Chart duoc destroy dung, nhung phan DOM render lai moi lan chon — co it nhat 1 issue that su o nghiep vu duoi",
+  "dim": ""
+ },
+ {
+  "detail": "loadStats() dung `invoke(...)` truc tiep (ten global window.invoke do api.js:28 export) thay vi safeInvoke: neu 1 trong 3 Promise reject (lock poisoned, IPC error), Promise.all reject -> unhandled rejection, trang Stats chi trong trang thai cu, khong toast, khong log cho nguoi dung. Cac ham khac (loadHistory, loadRecords, loadWeight, loadTemplates) deu dung safeInvoke nen co toast loi — loadStats la ngoai le that su.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Dung Promise.allSettled hoac doi 3 invoke thanh safeInvoke; neu 1 fail thi bao toast va render phan con lai.",
+  "line": 378,
+  "severity": "MEDIUM",
+  "title": "loadStats goi invoke truc tiep khong try/catch — reject IPC lam treo trang Stats",
+  "dim": ""
+ },
+ {
+  "detail": "updatePreview() (249-255): `cal.toFixed(1)` khi cal la null (safeInvoke tra null khi loi) nem TypeError, va race: moi lan nhap so goi IPC async; phan hoi tu request cu co the den sau request moi roi ghi de preview sai gia tri. saveWorkout (257-266) tuong tu: khong disable btn-save trong luc await add_workout, bam nhanh 2 lan tao 2 ban ghi; va khong bao thanh cong/loi (safeInvoke da toast loi, nhung khong xac nhan thanh cong).",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "updatePreview: kiem null truoc toFixed, them so thu tu request hoac cancel token bo ket qua cu. saveWorkout: disable nut trong luc luu, khoi phuc sau khi xong (thanh cong that su moi dieu huong ve home).",
+  "line": 253,
+  "severity": "MEDIUM",
+  "title": "updatePreview/saveWorkout: race async va crash khi IPC tra null",
+  "dim": ""
+ },
+ {
+  "detail": "loadHistory(): `const workouts = await safeInvoke('get_all_workouts');` khong co fallback `|| []` — neu IPC loi, workouts la null va `workouts.filter` tai 328 nem TypeError lam ca trang History vo hieu qua (toast loi cua safeInvoke hien ra nhung exception van lan). loadHistory duoc goi lai khi click vao trang, nen nguoi dung phai reload app de phuc hoi.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Dung `const workouts = (await safeInvoke('get_all_workouts')) || [];` nhu cac loader khac.",
+  "line": 326,
+  "severity": "MEDIUM",
+  "title": "loadHistory null-dereference khi safeInvoke tra null",
+  "dim": ""
+ },
+ {
+  "detail": "Nguoi dung bam Space o bat ky dau ngoai input de mo timer-fab (603-606). Fab click (514-517) chi mo panel; truoc do timer chua chay nen khong double-submit; nhung: khi timer DANG chay va nguoi dung bam Space de mo dong ho hoac panel da mo, timer-fab da co class 'hidden' nhung van click duoc qua code (fab an di — element van ton tai, click() van chay, chi la add lai class 'open', vo thu). Diem that su can bao: phan tu co the click (button, .exercise-opt co tabindex=0, chip) nhan Space se tu dong trigger click boi browser TRUOC khi handler app chay — handler go `e.preventDefault()` roi click() fab, ket qua 1 lan Space gay 2 hanh dong: 1 la hanh dong mac dinh cua phan tu duoc focus, 2 la mo timer. Nguoi dung tab vao exercise option (role=option tabindex=0 duoc them o 229-243) bam Enter ok, nhung neu bam Space vao option nay: handler keydown cua option (243) chi bat Enter/' ', preventDefault roi chon — dong thoi keydown-level cua document cung preventDefault + click fab. Hai handler cung lang nghe keydown ca 2 deu chay (option chon bai + fab mo timer). Hanh vi la double-action thuc su, da xac nhan theo luong event.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Trong keydown global: chi xu ly Space khi document.activeElement la body hoac phan tu khong co handler Space rieng (bo qua [role=option], button, a, [tabindex]). Hoac dau tien kiem tra e.defaultPrevented truoc khi chay phan Space.",
+  "line": 603,
+  "severity": "MEDIUM",
+  "title": "Space toggle timer-fab xung dot voi cac phan tu tuong tac keyboard — hai hanh dong chay cung luc",
+  "dim": ""
+ },
+ {
+  "detail": "beforeunload (977-980) terminate ocrWorker (neu da tao) va poseLandmarker.close(). Nhung: (1) ocrWorker chi duoc gan khi readWeightFromVideo da await xong (343); neu ocrWorkerPromise dang pending (dang tao worker, chua resolve) thi beforeunload chay khi ocrWorker===null — worker tao xong sau do khong bao gio bi terminate, worker process ton tai. (2) Trong Tauri WebView, beforeunload khong dam bao chay (window close, webview destroy) — best-effort. (3) ocrWorkerPromise loi thi ocrWorker giu null, worker cham dut tu nhien — OK. Chi ro ri that su la truong hop (1): nhieu worker Tesseract chua terminate neu dong app trong luc OCR dang khoi tao.",
+  "file": "C:/Dev/GymLab/src/js/video-analysis.js",
+  "fix": "Trong beforeunload: `if (ocrWorker) ... else if (ocrWorkerPromise) ocrWorkerPromise.then(w => w.terminate()).catch(()=>{})` hoac cung luu promise va terminate khi resolve.",
+  "line": 978,
+  "severity": "MEDIUM",
+  "title": "OCR worker va MediaPipe landmarker chi cleanup tren beforeunload — truong (1) worker dang tao khong duoc terminate, (2) Tauri khong dam bao chay beforeunload",
+  "dim": ""
+ },
+ {
+  "detail": "handleFile revoke videoUrl cu (871) dung. Nhung truong hop user load file A, quyen sang phan tich khac chua xong (analyzeVideo dang await seekVideo/t OCR), roi handleFile(fileB) duoc goi: video.src duoc thay moi, nhung vong lap analyzeVideo cu van dang chay voi video element (seekVideo tren video cung element — currentTime bi set lien tuc boi 2 luong), tao ket qua la hon, co the nem loi seek vo han. analyzeButton.disabled = true chi giu nut; file input change khong bi chan. Tuy nhien viec user phai chon file moi trong khi analyze dang chay la kho khan (progress dang chay, UI khong hien file picker chan) — anh huong thuc te thap. MEDIUM la vi ket qua la hon co the duoc LUU vao du lieu that.",
+  "file": "C:/Dev/GymLab/src/js/video-analysis.js",
+  "fix": "Them analysisSession token: handleFile tang counter va huy phan tich dang chay (kiem tra token trong vong lap sau moi seek; neu doi thi return ma khong render).",
+  "line": 871,
+  "severity": "MEDIUM",
+  "title": "Doi video trong khi phan tich dang chay khong huy luong cu — ket qua hon, seek race",
+  "dim": ""
+ },
+ {
+  "detail": "MAX_INPUT_HASH_BYTES = 512MB, sha256File doc ca file vao arrayBuffer (119) — voi video 500MB gan nhu chieu vao bo nho WebView mot lan (khi them video element, canvas OCR, MediaPipe heap). WebView Tauri (Edge WebView2) co han bo nho tien trinh ~1.5-2GB; voi may RAM thap day la OOM that su. Hien khong co kiem tra kich thuoc file truoc khi doc hash hay truoc khi load video (handleFile chi kiem tra loai, khong kiem size; key i18n 'video.file_too_large' 'duoi 200 MB' ton tai trong bundle NHUNG khong duoc dung bat ky dau trong video-analysis.js — da grep xac nhan).",
+  "file": "C:/Dev/GymLab/src/js/video-analysis.js",
+  "fix": "Them gioi han kich thuoc file (200MB nhu chuoi i18n da noi) o handleFile; voi file lon thi bo hash inputFileSha256 (da co co che null) thay vi doc toan bo vao bo nho — dung slice-stream hash hoac gan null.",
+  "line": 30,
+  "severity": "MEDIUM",
+  "title": "sha256File doc toan bo file vao RAM toi da 512MB — WebView co the OOM tren may RAM thap",
+  "dim": ""
+ },
+ {
+  "detail": "exportAnalysisReport() tao blob URL roi revoke ngay sau click bang setTimeout(0) (852). Trong truong hop tren, trinh duyet/thiet bi cham hoac download bi tre, revoke ngay sau tick tiep theo co the lam download fail voi 'network error'. Khong phai loi luon xay ra nhung da la known-footgun cua pattern nay. Cach phong an toan la tre revoke.",
+  "file": "C:/Dev/GymLab/src/js/video-analysis.js",
+  "fix": "Doi thanh setTimeout(() => URL.revokeObjectURL(url), 30000) hoac 60000 — doi download chac chan bat dau.",
+  "line": 847,
+  "severity": "MEDIUM",
+  "title": "exportAnalysisReport revoke blob URL ngay sau click — co that mat file khi trinh duy Xu ly cham",
+  "dim": ""
+ },
+ {
+  "detail": "Cac chuoi sau cung hardcode tieng Viet, khong ton tai trong bundle en: 'Max reps: ... Max volume: ...' (431), 'reps' o home PR (196), 'Weight (kg)' dataset chart (415), 'kg' (183, 466), thong bao loi 'Error: ...' (43). So voi muc tieu 'internationalize for global release' (commit e476df0), phan nay bo sot — nhat la chuoi 'Max reps/Max volume' va toast 'Error:'.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Them key (records.max_reps, records.max_volume, chart.weight_kg, toast.error) vao en+vi va dung _t.",
+  "line": 431,
+  "severity": "LOW",
+  "title": "Chuoi cung tieng Viet trong app.js phan Records/Home/Stats — i18n bo sot cuc bo",
+  "dim": ""
+ },
+ {
+  "detail": "Cac gia tri tu backend (overview.total_calories, w.calories_burned, daily.calories, dist.calories, pr.max_volume...) duoc dung truc tiep trong toFixed/reduce khong kiem tra null/undefined. Trong che do Tauri that, backend luon tra so nen thuong an toan; tuy nhien safeInvoke da tra null khi loi IPC va get_all_workouts/loadStats da co try/catch — nhung loadStats (378-381) vua neu o finding rieng. Diem that su con lai: loadHomePage:163 khong co '|| []' — neu IPC fail, workouts=null, w.date tai 165 nem TypeError vao DOMContentLoaded handler,lam ca chuoi setup sau do (buildUI da chay, nhung loadHomePage la await dong 74 xong roi moi den phan sau — thuc te allExercises tai 74 cung null thi buildUI truy cap allExercises.map tai 120 nem loi, ca app khong khoi dong phan Add page). Anh huong: that su lam app khong render duoc danh sach bai tap neu get_exercises fail mot lan.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Them `|| []` cho get_exercises (74) va get_all_workouts (163); loadHomePage bao toast va tiep tuc render trang thai rong thay vi nem exception.",
+  "line": 384,
+  "severity": "LOW",
+  "title": "Ngoai le number tren du lieu null tu IPC o stats/records/bw — khong gay crash chu yeu vi Rust tra gia tri mac dinh, chi toast Error kem",
+  "dim": ""
+ },
+ {
+  "detail": "applyExerciseReview():783 goi resolveAnalysisProfile(lastResult.detectedExerciseId) KHONG truyen profileModel — signature (62) nhan validatedModel; luc nay resolveValidatedProfile se duoc goi voi validatedModel=null nen chi tra EXERCISE_PROFILES (heuristic). Nghia la: profile model validated tung chap nhan mot bai (vd bench_press chi co trong model hoc, khong co trong EXERCISE_PROFILES) thi khi user doi chon va quay lai 'Giu ket qua AI', trang thai bien mat: profileEvaluationStatus = null -> canSaveAnalysis tra false (401) va nut Save bi disable bat ngo, ket qua AI vua luu duoc luc dau bien thanh khong luu duoc. Da doc xac nhan flow: detect ban dau (544) dung resolveAnalysisProfile(classification.exerciseId, profileModelInfo.model) — co model; con applyExerciseReview khong.",
+  "file": "C:/Dev/GymLab/src/js/video-analysis.js",
+  "fix": "Luu profileModelInfo.model vao lastResult (hoac bien module) va truyen vao resolveAnalysisProfile trong applyExerciseReview.",
+  "line": 783,
+  "severity": "MEDIUM",
+  "title": "applyExerciseReview mat profile model khi quay lai 'Giu ket qua AI' — trang thai validated bien mat, Save bi disable bat ngo",
+  "dim": ""
+ },
+ {
+  "detail": "beforeunload handler: `if (ocrWorker) Promise.resolve(ocrWorker.terminate()).catch(()=>{})` — neu ocrWorker la null nhung ocrWorkerPromise da tao (dang init), khong terminate (da neu o dong 978). Them: truong hop analyzeVideo dung GPU delegate, poseLandmarker giu graphic context; close() chi goi 1 lan khi beforeunload — neu user phan tich video thu 2 tro di thi modelPromise cache (475: `if (!modelPromise)`) nen 1 landmarker dung lai, OK khong tao lap. Ket luan chi fan-1 cua 978 la ro ri; dong 979 poseLandmarker.close() OK. Gop vao finding 978 de tranh trung lap.",
+  "file": "C:/Dev/GymLab/src/js/video-analysis.js",
+  "fix": "Xem finding dong 978.",
+  "line": 979,
+  "severity": "LOW",
+  "title": "poseLandmarker luon giu trong RAM suot doi ung dung — chap nhan duoc cho desktop app, chu 'unavailable' delegate bi mat",
+  "dim": ""
+ },
+ {
+  "detail": "Mock chi ap dung khi khong co Tauri; tuy nhien mockInvoke get_personal_records (153): `entries.reduce((a,b) => a.weight_kg > b.weight_kg ? a : b)` — neu w (mock workout list) co exercise chi 1 ban ghi thi OK; neu rong thi reduce tren mang rong nem TypeError. Chi anh huong dev mode, khong anh huong production. Ngoai ra api.js:28 window.invoke khong an toan ve va cham namespace (plugin thu 3 dat window.invoke se chiem) nhung day la thu tu load cua du an, MEDIUM khong can.",
+  "file": "C:/Dev/GymLab/src/js/api.js",
+  "fix": "Chi sua neu con duy tri dev-mode browser; production khong dung. Do uu tien thap.",
+  "line": 153,
+  "severity": "LOW",
+  "title": "Mock get_personal_records reduce tren mang rong nem exception (chi dev browser mode)",
+  "dim": ""
+ },
+ {
+  "detail": "STORAGE_KEY 'gymlab_locale' o localStorage: trong WebView Tauri, localStorage ton tai theo origin (tauri://localhost hoac http://tauri.localhost) va ton tai giua cac phien — hanh vi OK cho desktop app. Khong ro ri du lieu (chi luu ma ngon ngu). find: localStorage.getItem duoc goi trong detectLocale (392) — neu webview block storage (private mode) thi catch (_) da xu ly. Khong finding that su cho i18n.js ve dung dan; nhin chung file nay on.",
+  "file": "C:/Dev/GymLab/src/js/i18n.js",
+  "fix": "Khong can sua. Chi ghi nhan: bo sung key cho video-analysis theo finding HIGH da neu.",
+  "line": 392,
+  "severity": "LOW",
+  "title": "i18n.js on dinh — khong tim thay loi that su trong phan xua loi quoc te da dang",
+  "dim": ""
+ },
+ {
+  "detail": "video-analysis-core.js la pure function da duoc test ky (tests/ 75 case theo commit 30790b5). Doc toan bo: cac ham lay bien tu input, filter Number.isFinite truoc khi dung — khong tim thay null-deref, khong DOM, khong async. Khong co finding that su.",
+  "file": "C:/Dev/GymLab/src/js/video-analysis-core.js",
+  "fix": "Khong co hanh dong.",
+  "line": 1,
+  "severity": "LOW",
+  "title": "video-analysis-core.js sach — pure function, khong tim thay loi production-blocking",
+  "dim": ""
+ },
+ {
+  "detail": "Job Rust chạy Swatinem/rust-cache@v2 trước khi有任何 cd src-tauri; action này gọi cargo metadata từ repo root, log run 34761976890: \"error: could not find Cargo.toml in /home/runner/work/GymLab/GymLab\" → job chết ngay bước cache, các bước cargo check/clippy/fmt/test không bao giờ chạy. Hệ quả cả 4 lần CI trên GitHub (từ 2026-08-22 đến 2026-09-13) đều failure, và mọi job phụ thuộc (build-linux/windows/macos, windows-release-smoke) bị skip — repo chưa từng có 1 lần chạy CI xanh, cargo test/clippy/fmt chưa từng được CI thực thi.",
+  "file": ".github/workflows/ci.yml",
+  "fix": "Thêm workspaces cho rust-cache: `uses: Swatinem/rust-cache@v2` với `with: { workspaces: src-tauri }`, hoặc đặt `defaults: { run: { working-directory: src-tauri } }` cho job, hoặc chuyển sang cargo workspace ở root. Sau khi xanh, kiểm tra lại cả clippy -D warnings.",
+  "line": 18,
+  "severity": "BLOCKER",
+  "title": "CI chưa từng pass: job Rust chết tại rust-cache vì Cargo.toml nằm ở src-tauri",
+  "dim": ""
+ },
+ {
+  "detail": "Regex `r\"'([a-z][a-z0-9._]+)':\\s*'\"` chỉ khớp value trong nháy đơn. En block có 2 key dùng nháy kép vì chứa apostrophe: 'home.today_workouts' (i18n.js:27, \"Today's Workouts\") và 'weight.unknown_label' (i18n.js:143, \"Don't know\"). CI log: \"AssertionError: i18n key mismatch — WARNING: Missing in en: {'weight.unknown_label', 'home.today_workouts'}\". Dữ liệu i18n thật sự đầy đủ ở cả 2 locale (đã verify local bằng python -X utf8: missing in vi = rỗng); đây là false positive của checker, đã tái hiện đúng 2 key đó. Job frontend fail → chặn toàn bộ chuỗi build job.",
+  "file": ".github/workflows/ci.yml",
+  "fix": "Sửa regex ở ci.yml:59-60 thành `r\"'([a-z][a-z0-9._]+)':\\s*['\\\"]\"` cho cả en_keys và vi_keys (hoặc đổi 2 value en sang nháy đơn escape). Chạy thử lại bằng python -X utf8 trước khi push.",
+  "line": 59,
+  "severity": "BLOCKER",
+  "title": "Job frontend fail ở 'Validate i18n completeness': regex chỉ bắt value nháy đơn, 2 key en dùng nháy kép bị báo mất",
+  "dim": ""
+ },
+ {
+  "detail": "Dòng 76: `vi_pattern = re.compile(r'[À-ɏ]{3,}') if __import__('re') else None` — Python đánh giá nhánh true (re.compile) trước khi `import re` ở dòng sau chạy, nên NameError: name 're' is not defined (đã tái hiện local, exit lỗi). Bước này chưa từng chạy được trên GitHub vì bước i18n-completeness phía trên fail trước — nghĩa là sau khi fix BLOCKER 1+2, CI sẽ đỏ tiếp ở đây. Ngoài ra các bước CI mở file bằng open() không có encoding='utf-8': chạy tốt trên ubuntu-latest nhưng đã tái hiện UnicodeDecodeError (cp1252) trên máy Windows dev — khiến dev không thể chạy kịch bản CI y hệt trước khi push.",
+  "file": ".github/workflows/ci.yml",
+  "fix": "Đưa `import re` lên dòng đầu của khối python, xóa biến vi_pattern chết; thêm encoding='utf-8' cho mọi open() trong ci.yml (các bước 36-44, 54-70, 103-111 đều cần).",
+  "line": 76,
+  "severity": "HIGH",
+  "title": "Bước 'Validate i18n usage in HTML' chắc chắn crash với NameError — dead-code chưa từng chạy, và open() thiếu encoding='utf-8'",
+  "dim": ""
+ },
+ {
+  "detail": "Grep toàn bộ .github/workflows/ không thấy benchmark_accuracy.py, _accuracy_harness.mjs, npm test hay test:accuracy nào. CI chỉ chạy `node tests/video-analysis-core.test.mjs` (ci.yml:53). Suite 75 case (13 bài × 3 variant + 36 case stress: noise 3x, off-tempo, mid-set rest) với 9 fix classifier/duration trong commit 30790b5 không được chặn regression trên push/PR. Đã xác nhận benchmark chạy nhanh (~vài giây), không phụ thuộc ngoài, deterministic hoàn toàn (random.Random seeded + zlib.crc32(ex_id) derive seed) — 3 lần chạy cho kết quả y hệt 99.0% với đúng 3 case fail quen thuộc (overhead_press/noise, overhead_press/rest, barbell_row/noise — đều abstain đúng thiết kế do margin top-1/top-2 quá gần). Không có lý do gì không đưa vào CI.",
+  "file": ".github/workflows/ci.yml",
+  "fix": "Thêm 1 step vào job frontend: `run: python tests/benchmark_accuracy.py --min-accuracy 0.95` (exit 2 khi fail, dùng được làm gate), hoặc gọi `npm test` sau khi cài python (runner ubuntu có sẵn).",
+  "line": 53,
+  "severity": "HIGH",
+  "title": "Accuracy benchmark gate 99% (75 case) không được chạy trong CI — npm test / benchmark_accuracy.py không được reference ở workflow nào",
+  "dim": ""
+ },
+ {
+  "detail": "CI chạy 5 file test_*.py dạng script (`python3 tests/test_*.py`), nên chỉ các hàm được gọi trong khối __main__ mới chạy. test_evaluate_benchmark.py định nghĩa 10 hàm nhưng __main__ (dòng 288-297) chỉ gọi 8 — bỏ sót test_class_coverage_reports_support_and_subject_diversity (dòng 63, kiểm tra support/subject_count/camera_count) và test_evaluator_version_is_pinned (dòng 129, ghim EVALUATOR_VERSION). Local pytest chạy đủ 23/23 pass (exit 0, 0.12s) nên không phải test hỏng — chỉ là CI không bao giờ thực thi 2 test này. Không có pytest.ini/pyproject/setup.cfg để cấu hình.",
+  "file": "tests/test_evaluate_benchmark.py",
+  "fix": "Đổi bước CI sang `python3 -m pytest tests/test_evaluate_benchmark.py tests/test_prepare_benchmark_manifest.py tests/test_prepare_profile_labels.py tests/test_promote_profile_model.py tests/test_train_profile_model.py -q` (đã verify lệnh này pass local, exit 0), hoặc thêm đủ lời gọi vào khối __main__ của từng file.",
+  "line": 288,
+  "severity": "MEDIUM",
+  "title": "CI chạy test_*.py như script standalone; khối __main__ bỏ sót 2/10 test của evaluator",
+  "dim": ""
+ },
+ {
+  "detail": "19 test trong mod tests (main.rs:1115-1292, cargo test local pass exit 0) chỉ phủ hàm thuần: 3 test calories (dòng 1146-1162) chỉ assert `cal > 0.0` — không có assert giá trị chính xác nào cho công thức ACSM (vd 6.0 MET × 70kg × 0.5h = 210 kcal) hay cho nhánh fallback zero-duration (3 sets × 10 reps × 3s + 2×60s = 330s → 38.5 kcal) — lỗi off-by-one trong công thức sẽ không bị bắt. Nghiêm trọng hơn: toàn bộ tầng persistence (~780 dòng còn lại: load/save workouts.json, settings.json, templates.json, body_weight_log.json, get_daily_calories, get_progress, 15 Tauri command) không có test nào. get_daily_calories (main.rs:634-687) gộp ngày theo date và cộng dồn calories — logic aggregation này hoàn toàn test được bằng tempdir nhưng chưa hề được test.",
+  "file": "src-tauri/src/main.rs",
+  "fix": "Thêm assert giá trị chính xác cho calculate_calories (case chuẩn 210 kcal + case fallback 38.5 kcal + case weight NaN→70). Với persistence: các hàm đã nhận app_dir: &Path — viết test với tempfile::tempdir() cho roundtrip save/load workouts, settings, và daily aggregation (edge: workout nửa đêm qua ngày, days=0, file corrupt JSON).",
+  "line": 1146,
+  "severity": "MEDIUM",
+  "title": "Calorie engine chỉ có test 'cal > 0' — không assert giá trị chính xác; ~780 dòng persistence/command của main.rs zero test",
+  "dim": ""
+ },
+ {
+  "detail": "Job 'Build (Windows)' (ci.yml:157) và 'Build (macOS)' (ci.yml:174) chỉ chạy `npm run build` — script này là `node tests/check-frontend-syntax.mjs`, thuần parse-check JS. Không có cargo check/compile nào cho Windows/macOS trên push/PR; code Rust chỉ được compile thật trên Windows khi push tag (release.yml, tauri-action). Mọi lỗi chỉ-biên-lỗi-trên-Windows (API Win32, path separator, codegen WebView2) sẽ chỉ bị phát hiện lúc release. Windows là platform phát hành chính của app (packaged smoke, exe) nên đây là lỗ hổng gate thực.",
+  "file": ".github/workflows/ci.yml",
+  "fix": "Trong job windows/macos thêm step `run: cd src-tauri && cargo check --all-targets` (không cần libwebkit; check compile đủ bắt lỗi platform-specific), hoặc đổi tên job thành 'Frontend syntax' cho trung thực nếu không định compile.",
+  "line": 157,
+  "severity": "MEDIUM",
+  "title": "Job 'Build (Windows)/(macOS)' chỉ chạy syntax check JS, không compile Rust — không job CI thường nào compile được app trên platform phát hành chính",
+  "dim": ""
+ },
+ {
+  "detail": "video-analysis-e2e.py (361 dòng, chạy flow JS thật qua Chromium: khởi tạo MediaPipe + Tesseract thật, load fixture, verify reps/kg/calories/coverage, provenance SHA-256, quality_gate) không xuất hiện trong workflow nào. packaged-video-smoke.py có job riêng (windows-release-smoke) nhưng chưa từng chạy lần nào vì needs: [rust, frontend] chưa từng xanh. Kết quả: toàn bộ tầng orchestration src/js/video-analysis.js (986 dòng — pipeline video, OCR worker, UI flow) và tích hợp MediaPipe/Tesseract thật không có mặt trong CI thường xuyên; app.js (623 dòng), api.js, i18n.js cũng không có unit test trực tiếp — chỉ video-analysis-core.js (552 dòng) được unit test. Fixture nhẹ (~496KB mp4 + 1.6MB webm, đã track trong git) nên không phải rào cản.",
+  "file": "tests/video-analysis-e2e.py",
+  "fix": "Thêm 1 job linux: setup-python + `pip install playwright` + `python -m playwright install chromium` rồi chạy `python tests/video-analysis-e2e.py --fixture tests/fixtures/pose_squats_60kg.webm --auto-weight --review-exercise squat` (script khởi động HTTP server local riêng, không cần app Tauri). Ưu tiên sau khi 2 BLOCKER được fix để smoke Windows bắt đầu chạy thật.",
+  "line": 1,
+  "severity": "MEDIUM",
+  "title": "E2E Chromium (MediaPipe + Tesseract thật) không nằm trong CI; packaged smoke tuy có job nhưng chưa từng chạy lần nào",
+  "dim": ""
+ },
+ {
+  "detail": "benchmark_accuracy.py ghi tests/_accuracy_results.json (dòng 274, qua harness outPath) mỗi lần chạy nhưng .gitignore không có entry; file đang nằm untracked (`?? tests/_accuracy_results.json` trong git status) và sẽ dirty working tree sau mỗi lần chạy gate, dễ bị commit nhầm. Suite _accuracy_suite.json đã được unlink sau run (dòng 354) nhưng cũng nên ignore cho trường hợp --keep-suite hoặc run bị giết giữa chừng. Lưu ý accuracy_report.json là bằng chứng được commit cố ý (tham chiếu trong commit 30790b5) — giữ nguyên.",
+  "file": "tests/benchmark_accuracy.py",
+  "fix": "Thêm 2 dòng vào .gitignore: `tests/_accuracy_results.json` và `tests/_accuracy_suite.json`. Tẩy file untracked hiện tại khỏi index nếu đã lỡ add.",
+  "line": 274,
+  "severity": "LOW",
+  "title": "tests/_accuracy_results.json sinh ra mỗi lần chạy benchmark nhưng không được gitignore",
+  "dim": ""
+ },
+ {
+  "detail": "Annotation trên run mới nhất: \"Node.js 20 is deprecated... actions/checkout@v4, actions/setup-node@v4 are forced to run on Node 24\"; setup-node pin node-version: 20 (Node 20 đã EOL từ 2026-04). Hiện chỉ là warning, không fail build, nhưng để nguyên sẽ thành lỗi cứng khi GitHub ngừng force Node 24. devDependencies @tauri-apps/cli ^2 tương thích Node 22/24 nên nâng an toàn.",
+  "file": ".github/workflows/ci.yml",
+  "fix": "Đổi node-version: 20 → 24 ở cả 4 chỗ trong ci.yml (dòng 35, 132, 152, 168) và release.yml (dòng 30); nâng actions/checkout/setup-node lên bản mới targeting Node 24.",
+  "line": 35,
+  "severity": "LOW",
+  "title": "Node 20 đã EOL, workflow bị annotation deprecation — pin node-version: 20 ở cả ci.yml và release.yml",
+  "dim": ""
+ },
+ {
+  "detail": "script-src 'self' thiếu 'wasm-unsafe-eval' (WebView2 96+ chặn WebAssembly.instantiate khi thiếu directive) nên MediaPipe pose landmarker và Tesseract OCR — cả hai nạp WASM — sẽ chết khi build từ source hiện tại. Đồng thời app.js sinh HTML với inline onclick (app.js:184, 288, 292, 350-351) và inference-smoke.html:15-24 dùng inline script; CSP mới không có 'unsafe-inline' cho script nên các nút re-log/delete và trang diagnostics bị chặn im lặng. Đã xác minh Tauri 2.11.5 inject CSP này thành header Content-Security-Policy cho mọi asset trên tauri:// (crate src/protocol/tauri.rs:183 + src/manager/mod.rs).",
+  "file": "C:/Dev/GymLab/src-tauri/tauri.conf.json",
+  "fix": "Đổi script-src thành 'self' 'wasm-unsafe-eval'; thay inline onclick bằng event delegation (data-id + addEventListener). Chạy lại packaged-video-smoke.py trên bản build mới.",
+  "line": 23,
+  "severity": "BLOCKER",
+  "title": "CSP hiện tại sẽ phá hỏng Video Analysis (WASM) và mọi nút onclick khi build từ source",
+  "dim": ""
+ },
+ {
+  "detail": "Extract chuỗi CSP nhúng trong gym-lab.exe, MSI và NSIS setup: script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net — cho phép tải script từ CDN và eval, mâu thuẫn với commit e476df0 đã đổi thành script-src 'self'. Mtime exe 18:55, commit 23:19 cùng ngày 12/9: artifact build trước commit hardening. Ship nhầm = phát hành CSP lỏng cũ. Cả 2 installer NotSigned (đã kiểm Get-AuthenticodeSignature) → SmartScreen chặn/cảnh báo người dùng cuối.",
+  "file": "C:/Dev/GymLab/src-tauri/target/release/bundle/nsis/GymLab_1.0.0_x64-setup.exe",
+  "fix": "Sau khi sửa CSP, build lại từ source, xóa artifact cũ trong target/release/bundle; mua cert code-signing (OV/EV) và ký NSIS+MSI trước khi phát hành.",
+  "line": 1,
+  "severity": "BLOCKER",
+  "title": "Installer trên đĩa embed CSP cũ unsafe-eval + CDN ngoài (build trước commit hardening) và chưa ký số",
+  "dim": ""
+ },
+ {
+  "detail": "save_template nhận name từ prompt() (app.js:269) lưu xuống templates.json không giới hạn; loadTemplates (app.js:288-291) render `${t.name}` trực tiếp vào innerHTML mà không escape (đã quét toàn bộ src/js — không có hàm escapeHtml nào). Tương tự exercise_name đến từ workouts.json (ai đó sửa file dữ liệu bằng tay) được render ở app.js:182, 196, 348. Với CSP hiện tại script inline bị chặn nên không chạy JS được, nhưng injection attribute/style/định dạng vẫn phá UI, và nếu ai đó thêm lại 'unsafe-inline' (kiểu CSP cũ trong installer) thì thành XSS đầy đủ: invoke() có thể gọi mọi command IPC đã đăng ký.",
+  "file": "C:/Dev/GymLab/src/js/app.js",
+  "fix": "Thêm helper escapeHtml() và escape mọi interpolation chuỗi từ dữ liệu (name, notes, exercise_name) trong các template string; hoặc render bằng DOM API/textContent.",
+  "line": 288,
+  "severity": "HIGH",
+  "title": "Stored XSS: tên template và các chuỗi lưu trong JSON render thẳng vào innerHTML không escape",
+  "dim": ""
+ },
+ {
+  "detail": "log_body_weight (main.rs:963-977) nhận weight: f64 từ IPC và ghi thẳng vào body_weight_log.json mà không gọi validate_body_weight — khác với mọi command khác đã validate. Frontend có check (app.js:441 w>=20) nhưng IPC là biên giới tin cậy: NaN/âm/vô cực/9999 ghi thẳng vào dữ liệu và phá biểu đồ trọng lượng khi render. Tương tự save_template (main.rs:858-894) không validate name (String dài vô hạn) và sets/reps/weight từ list (main.rs:875-877 lấy raw .get(i) không clamp — khác add_workout có validate_sets/validate_reps).",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Trong log_body_weight gọi validate_body_weight(weight) trước khi ghi; trong save_template áp validate_sets/validate_reps/validate_weight cho từng phần tử và giới hạn độ dài name (ví dụ 100 ký tự).",
+  "line": 963,
+  "severity": "HIGH",
+  "title": "log_body_weight không validate đầu vào — NaN/Infinity/âm có thể ghi vào dữ liệu",
+  "dim": ""
+ },
+ {
+  "detail": "Tất cả save_* dùng `let _ = fs::write(path, data)` — lỗi đĩa đầy, quyền, antivirus lock đều bị nuốt: app tiếp tục hoạt động trên state bộ nhớ, người dùng thêm workout cả buổi và khi tắt app mất toàn bộ. fs::write cũng ghi trực tiếp lên file gốc (không write-temp-then-rename), nên quá trình ghi bị gián đoạn (mất điện/crash) sẽ để lại workouts.json nửa chừng — và load_workouts (main.rs:491) dùng unwrap_or_default nên JSON hỏng = toàn bộ lịch sử bị coi là vec![] và bị ghi đè vĩnh viễn ở lần save kế tiếp.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Ghi qua file tạm (workouts.json.tmp) rồi fs::rename thay thế nguyên tử; nếu write lỗi thì trả Result cho IPC để frontend báo toast lỗi; trong load_workouts, khi parse lỗi và file khác rỗng thì sao lưu workouts.json.corrupt thay vì coi như rỗng.",
+  "line": 510,
+  "severity": "HIGH",
+  "title": "save_workouts bỏ qua lỗi ghi đĩa: mất dữ liệu im lặng",
+  "dim": ""
+ },
+ {
+  "detail": "Dùng NaiveDate so sánh theo UTC và frontend cũng lọc `date.slice(0,10) === new Date().toISOString().slice(0,10)` (app.js:163) — workout logged 6h sáng GMT+7 (23:00 UTC hôm trước) bị đếnh vào ngày hôm qua cả trong 'Today's Workouts', get_daily_calories và active_days của stats. get_daily_calories (main.rs:639-660) còn quét O(days × workouts) cho mỗi lần gọi. Đối với app desktop quốc tế đây là lỗi dữ liệu người dùng nhìn thấy được.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Chọn một mốc thống nhất: chuyển timestamp sang ngày local (chrono Local + TimeZone::from_utc_datetime) trước khi group, và frontend lọc theo năm-tháng-ngày local thay vì toISOString; hoặc lưu thêm trường date_local lúc add_workout.",
+  "line": 641,
+  "severity": "MEDIUM",
+  "title": "Bucketing ngày theo UTC làm lệch 'hôm nay' và biểu đồ theo múi giờ người dùng",
+  "dim": ""
+ },
+ {
+  "detail": "relog_from_template tạo WorkoutEntry với met_value: 6.0 cứng (main.rs:934) — đúng với squat/bench nhưng sai với cardio (running MET 9.8, yoga 3.0): giá trị hiển thị trong history/records sẽ không khớp exercise thật. Calories thì tính đúng qua calculate_calories, chỉ met_value lưu sai. Ngoài ra duration_minutes: 0.0 khiến calculate_calories rơi vào nhánh ước lượng theo reps (main.rs:385-391) chứ không theo thời gian thật.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Điền met_value bằng find_exercise(&ex.exercise_id).met; lưu bài tập duration-only (cardio/flexibility) vào template kèm duration hoặc bỏ qua nhánh ước lượng cho category cardio.",
+  "line": 922,
+  "severity": "MEDIUM",
+  "title": "relog_from_template ghi met_value và calories sai với bài không phải strength",
+  "dim": ""
+ },
+ {
+  "detail": "get_personal_records (main.rs:815) và get_exercise_distribution (main.rs:681) dùng partial_cmp().unwrap() — nếu bất kỳ bản ghi nào trong workouts.json chứa weight_kg hoặc calories_burned là NaN (serde_json cho phép NaN? Không — nhưng JSON ghi tay có thể chứa chuỗi, hoặc f64 từ JSON 'null' khi thiếu trường calories_burned sẽ deserialize lỗi... thực tế NaN không serialize được, nhưng parse JSON tay chèn số mũ bất thường vẫn cho f64; quan trọng nhất: người dùng sửa file dữ liệu tay thì app panic ngay khi mở trang Records). unwrap() trong lock().unwrap() cũng crash toàn app nếu poison sau panic trước đó.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Dùng partial_cmp().unwrap_or(Ordering::Equal) hoặc total_cmp() cho mọi so sánh f64 từ dữ liệu persistence; kiểm tra filter is_finite() khi load_workouts.",
+  "line": 815,
+  "severity": "MEDIUM",
+  "title": "partial_cmp().unwrap() trên dữ liệu load từ đĩa có thể panic toàn app",
+  "dim": ""
+ },
+ {
+  "detail": "withGlobalTauri: true phơi window.__TAURI__ (core.invoke) ra toàn局 JS — kết hợp XSS ở finding app.js:288 thì bất kỳ script nào chèn được có thể gọi trực tiếp add_workout/delete_workout... (không có shell/fs/http permission nên blast radius giới hạn ở thao tác dữ liệu). App chỉ cần window.__TAURI__.core.invoke — có thể đạt tương đương bằng import ES module @tauri-apps/api mà không cần global. Giữ nguyên chỉ là lớp phòng thủ nông.",
+  "file": "C:/Dev/GymLab/src-tauri/tauri.conf.json",
+  "fix": "Đặt withGlobalTauri: false và chuyển api.js sang import '@tauri-apps/api/core' (đã có sẵn trong Cargo.lock).",
+  "line": 10,
+  "severity": "MEDIUM",
+  "title": "withGlobalTauri: true mở rộng bề mặt tấn công IPC trong WebView",
+  "dim": ""
+ },
+ {
+  "detail": "set_body_weight và set_user_name đọc settings path qua state.data_path.parent().unwrap() rồi join('settings.json') — lặp lại chuỗi dựng tay ở 4 chỗ khác nhau thay vì dùng settings_file_path() đã có sẵn (main.rs:465). parent() trên PathBuf workouts.json luôn tồn tại nên không panic thực tế, nhưng đường dẫn hardcode chữ 'settings.json'/'templates.json' 3 lần là chỗ cho lỗi đồng bộ nếu đổi cấu trúc thư mục.",
+  "file": "C:/Dev/GymLab/src-tauri/src/main.rs",
+  "fix": "Thêm các trường settings_path/templates_path/bw_log_path vào AppState lúc setup (đã có sẵn trong closure main) và dùng chúng thay vì parent().unwrap().join().",
+  "line": 751,
+  "severity": "LOW",
+  "title": "data_path.parent().unwrap() và join cứng chuỗi tên file lặp lại 4 chỗ",
+  "dim": ""
+ },
+ {
+  "detail": "core:default cho phép mọi command IPC tùy chỉnh của app trên window 'main' — đúng mức tối thiểu, tốt. Không có shell-open, fs, http wildcard; asset protocol scope không mở; Cargo.toml không enable feature nguy hiểm nào. Đây là ghi chú xác nhận chứ không phải finding cần sửa; điểm cần lưu ý duy nhất: get_data_path (main.rs:555) phơi đường dẫn tuyệt đối thư mục dữ liệu ra WebView — vô hại nhưng không cần thiết cho UI.",
+  "file": "C:/Dev/GymLab/src-tauri/capabilities/default.json",
+  "fix": "Giữ nguyên core:default; cân nhắc bỏ command get_data_path khỏi invoke_handler nếu frontend không dùng (đã grep src/js — không thấy gọi).",
+  "line": 5,
+  "severity": "LOW",
+  "title": "Capabilities OK (chỉ core:default) — không có phát hiện nguy hiểm",
+  "dim": ""
+ }
+]

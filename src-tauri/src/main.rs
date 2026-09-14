@@ -1,8 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{Manager, State};
@@ -474,6 +475,72 @@ fn body_weight_log_file_path(app_dir: &Path) -> PathBuf {
     app_dir.join("body_weight_log.json")
 }
 
+// ─── Atomic Persistence ───
+// All data files are written via a temp file + fsync + rename so a crash or
+// power loss mid-write can never leave a truncated JSON behind, and any I/O
+// error is reported to the caller instead of being silently swallowed.
+
+fn save_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
+    let dir = path
+        .parent()
+        .ok_or_else(|| "data file has no parent directory".to_string())?;
+    let data = serde_json::to_string_pretty(value)
+        .map_err(|e| format!("serialize {path:?}: {e}"))?;
+
+    let tmp = path.with_extension("json.tmp");
+    let write_one = |target: &Path, contents: &str| -> Result<(), String> {
+        let mut file = fs::File::create(target)
+            .map_err(|e| format!("create {target:?}: {e}"))?;
+        file.write_all(contents.as_bytes())
+            .map_err(|e| format!("write {target:?}: {e}"))?;
+        file.sync_all()
+            .map_err(|e| format!("sync {target:?}: {e}"))?;
+        Ok(())
+    };
+
+    write_one(&tmp, &data)?;
+    // Keep one generation of the previous file as recovery headroom.
+    if path.exists() {
+        let _ = fs::copy(path, path.with_extension("json.bak"));
+    }
+    fs::rename(&tmp, path).map_err(|e| format!("replace {path:?}: {e}"))?;
+    // Best-effort: make the rename durable without blocking on every handle.
+    if let Ok(dir_file) = fs::File::open(dir) {
+        let _ = dir_file.sync_all();
+    }
+    Ok(())
+}
+
+// On parse failure, quarantine the broken file (keeping the user's data) and
+// report the error. `default` is only used when the file simply doesn't exist.
+fn load_json_or_quarantine<T: for<'de> Deserialize<'de>>(
+    path: &Path,
+    default: T,
+) -> Result<T, String> {
+    match fs::read_to_string(path) {
+        Ok(data) => {
+            if data.trim().is_empty() {
+                return Ok(default);
+            }
+            match serde_json::from_str(&data) {
+                Ok(value) => Ok(value),
+                Err(e) => {
+                    let stamp = Utc::now().format("%Y%m%dT%H%M%SZ");
+                    let quarantined = path.with_extension(format!("json.corrupt-{stamp}"));
+                    let _ = fs::rename(path, &quarantined);
+                    Err(format!(
+                        "data file {:?} is damaged and was moved to {quarantined:?} ({e}). \
+                         No data has been overwritten.",
+                        path.file_name().unwrap_or_default()
+                    ))
+                }
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(default),
+        Err(e) => Err(format!("read {path:?}: {e}")),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct Settings {
     body_weight: f64,
@@ -486,62 +553,49 @@ fn default_body_weight_source() -> String {
     "default".into()
 }
 
-fn load_workouts(path: &Path) -> Vec<WorkoutEntry> {
-    if let Ok(data) = fs::read_to_string(path) {
-        let mut workouts: Vec<WorkoutEntry> = serde_json::from_str(&data).unwrap_or_default();
-        // Entries written before `weight_known` existed used 0 kg for an
-        // unreadable video load. Preserve that meaning during migration when
-        // the provenance note identifies the old unknown-load path.
-        for workout in &mut workouts {
-            if workout
-                .notes
-                .as_deref()
-                .is_some_and(|notes| notes.contains("weight_source=Chưa xác định từ video"))
-            {
-                workout.weight_known = false;
-            }
-        }
-        workouts
-    } else {
-        vec![]
-    }
-}
-
-fn save_workouts(path: &Path, workouts: &[WorkoutEntry]) {
-    if let Ok(data) = serde_json::to_string_pretty(workouts) {
-        let _ = fs::write(path, data);
-    }
-}
-
-fn load_settings(path: &Path) -> Settings {
-    if let Ok(data) = fs::read_to_string(path) {
-        let mut settings = serde_json::from_str(&data).unwrap_or(Settings {
-            body_weight: 70.0,
-            user_name: "User".into(),
-            body_weight_source: default_body_weight_source(),
-        });
-        // Settings written before source provenance existed did not carry a
-        // source field. A non-default persisted value is strong evidence that
-        // the user entered it, so migrate it without relabeling the default.
-        if settings.body_weight_source == "default"
-            && (settings.body_weight - 70.0).abs() > f64::EPSILON
+fn load_workouts(path: &Path) -> Result<Vec<WorkoutEntry>, String> {
+    let mut workouts = load_json_or_quarantine(path, Vec::new())?;
+    // Entries written before `weight_known` existed used 0 kg for an
+    // unreadable video load. Preserve that meaning during migration when
+    // the provenance note identifies the old unknown-load path.
+    for workout in &mut workouts {
+        if workout
+            .notes
+            .as_deref()
+            .is_some_and(|notes| notes.contains("weight_source=Chưa xác định từ video"))
         {
-            settings.body_weight_source = "settings".into();
+            workout.weight_known = false;
         }
-        settings
-    } else {
+    }
+    Ok(workouts)
+}
+
+fn save_workouts(path: &Path, workouts: &[WorkoutEntry]) -> Result<(), String> {
+    save_json_atomic(path, workouts)
+}
+
+fn load_settings(path: &Path) -> Result<Settings, String> {
+    let mut settings = load_json_or_quarantine(
+        path,
         Settings {
             body_weight: 70.0,
             user_name: "User".into(),
             body_weight_source: default_body_weight_source(),
-        }
+        },
+    )?;
+    // Settings written before source provenance existed did not carry a
+    // source field. A non-default persisted value is strong evidence that
+    // the user entered it, so migrate it without relabeling the default.
+    if settings.body_weight_source == "default"
+        && (settings.body_weight - 70.0).abs() > f64::EPSILON
+    {
+        settings.body_weight_source = "settings".into();
     }
+    Ok(settings)
 }
 
-fn save_settings(path: &Path, settings: &Settings) {
-    if let Ok(data) = serde_json::to_string_pretty(settings) {
-        let _ = fs::write(path, data);
-    }
+fn save_settings(path: &Path, settings: &Settings) -> Result<(), String> {
+    save_json_atomic(path, settings)
 }
 
 // ─── Tauri Commands ───
@@ -607,20 +661,20 @@ fn add_workout(
 
     let mut workouts = state.workouts.lock().unwrap();
     workouts.push(entry.clone());
-    save_workouts(&state.data_path, &workouts);
+    save_workouts(&state.data_path, &workouts)?;
     Ok(entry)
 }
 
 #[tauri::command]
-fn delete_workout(state: State<'_, AppState>, id: String) -> bool {
+fn delete_workout(state: State<'_, AppState>, id: String) -> Result<bool, String> {
     let mut workouts = state.workouts.lock().unwrap();
     let len_before = workouts.len();
     workouts.retain(|w| w.id != id);
     let changed = workouts.len() < len_before;
     if changed {
-        save_workouts(&state.data_path, &workouts);
+        save_workouts(&state.data_path, &workouts)?;
     }
-    changed
+    Ok(changed)
 }
 
 #[tauri::command]
@@ -632,27 +686,30 @@ fn get_all_workouts(state: State<'_, AppState>) -> Vec<WorkoutEntry> {
 
 #[tauri::command]
 fn get_daily_calories(state: State<'_, AppState>, days: i32) -> Vec<DailySummary> {
+    // IPC boundary: never trust the requested window size. 730 days (~2y) is
+    // the widest range the UI can meaningfully chart.
+    let days = days.clamp(1, 730);
     let workouts = state.workouts.lock().unwrap();
-    let now = Utc::now();
-    let mut summaries = Vec::new();
+    let today = Local::now().date_naive();
 
+    // Group once by local date instead of rescanning all workouts per day.
+    let mut by_day: std::collections::HashMap<NaiveDate, (f64, i32)> =
+        std::collections::HashMap::new();
+    for w in workouts.iter() {
+        let local_date = w.date.with_timezone(&Local).date_naive();
+        let entry = by_day.entry(local_date).or_insert((0.0, 0));
+        entry.0 += w.calories_burned;
+        entry.1 += 1;
+    }
+
+    let mut summaries = Vec::with_capacity(days as usize);
     for i in 0..days {
-        let date = now - chrono::Duration::days(i as i64);
-        let naive = date.date_naive();
-        let day_cal: f64 = workouts
-            .iter()
-            .filter(|w| w.date.date_naive() == naive)
-            .map(|w| w.calories_burned)
-            .sum();
-        let count = workouts
-            .iter()
-            .filter(|w| w.date.date_naive() == naive)
-            .count() as i32;
-
+        let date = today - chrono::Duration::days(i as i64);
+        let (calories, workout_count) = by_day.get(&date).copied().unwrap_or((0.0, 0));
         summaries.push(DailySummary {
-            date: naive,
-            calories: day_cal,
-            workout_count: count,
+            date,
+            calories,
+            workout_count,
         });
     }
 
@@ -662,13 +719,14 @@ fn get_daily_calories(state: State<'_, AppState>, days: i32) -> Vec<DailySummary
 
 #[tauri::command]
 fn get_exercise_distribution(state: State<'_, AppState>, days: i32) -> Vec<ExerciseDistribution> {
+    let days = days.clamp(1, 730);
     let workouts = state.workouts.lock().unwrap();
-    let now = Utc::now();
-    let cutoff = now - chrono::Duration::days(days as i64);
+    let cutoff_local = (Utc::now() - chrono::Duration::days(days as i64))
+        .with_timezone(&Local);
 
     let mut dist: Vec<(String, f64)> = Vec::new();
     for w in workouts.iter() {
-        if w.date > cutoff {
+        if w.date.with_timezone(&Local) > cutoff_local {
             if let Some(existing) = dist.iter_mut().find(|(name, _)| name == &w.exercise_name) {
                 existing.1 += w.calories_burned;
             } else {
@@ -678,7 +736,8 @@ fn get_exercise_distribution(state: State<'_, AppState>, days: i32) -> Vec<Exerc
     }
 
     let total: f64 = dist.iter().map(|(_, c)| c).sum();
-    dist.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    // total_cmp is NaN-safe and never panics, unlike partial_cmp().unwrap().
+    dist.sort_by(|a, b| b.1.total_cmp(&a.1));
 
     dist.into_iter()
         .map(|(name, cal)| ExerciseDistribution {
@@ -695,11 +754,15 @@ fn get_exercise_distribution(state: State<'_, AppState>, days: i32) -> Vec<Exerc
 
 #[tauri::command]
 fn get_stats_overview(state: State<'_, AppState>, days: i32) -> StatsOverview {
+    let days = days.clamp(1, 730);
     let workouts = state.workouts.lock().unwrap();
-    let now = Utc::now();
-    let cutoff = now - chrono::Duration::days(days as i64);
+    let cutoff_local = (Utc::now() - chrono::Duration::days(days as i64))
+        .with_timezone(&Local);
 
-    let recent: Vec<&WorkoutEntry> = workouts.iter().filter(|w| w.date > cutoff).collect();
+    let recent: Vec<&WorkoutEntry> = workouts
+        .iter()
+        .filter(|w| w.date.with_timezone(&Local) > cutoff_local)
+        .collect();
     let total_cal: f64 = recent.iter().map(|w| w.calories_burned).sum();
     let total_vol: f64 = recent
         .iter()
@@ -707,7 +770,7 @@ fn get_stats_overview(state: State<'_, AppState>, days: i32) -> StatsOverview {
         .sum();
     let active_days: i32 = recent
         .iter()
-        .map(|w| w.date.date_naive())
+        .map(|w| w.date.with_timezone(&Local).date_naive())
         .collect::<std::collections::HashSet<_>>()
         .len() as i32;
 
@@ -726,7 +789,7 @@ fn get_stats_overview(state: State<'_, AppState>, days: i32) -> StatsOverview {
 
 #[tauri::command]
 fn get_body_weight(state: State<'_, AppState>) -> f64 {
-    *state.body_weight.lock().unwrap()
+    state.settings.lock().unwrap().body_weight
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -737,48 +800,38 @@ struct BodyWeightMetadata {
 
 #[tauri::command]
 fn get_body_weight_metadata(state: State<'_, AppState>) -> BodyWeightMetadata {
+    let settings = state.settings.lock().unwrap();
     BodyWeightMetadata {
-        value: *state.body_weight.lock().unwrap(),
-        source: state.body_weight_source.lock().unwrap().clone(),
+        value: settings.body_weight,
+        source: settings.body_weight_source.clone(),
     }
 }
 
 #[tauri::command]
-fn set_body_weight(state: State<'_, AppState>, weight: f64) {
+fn set_body_weight(state: State<'_, AppState>, weight: f64) -> Result<(), String> {
     let weight = validate_body_weight(weight);
-    *state.body_weight.lock().unwrap() = weight;
-    *state.body_weight_source.lock().unwrap() = "settings".into();
-    let path = state.data_path.parent().unwrap().join("settings.json");
-    let name = state.user_name.lock().unwrap().clone();
-    save_settings(
-        &path,
-        &Settings {
-            body_weight: weight,
-            user_name: name,
-            body_weight_source: "settings".into(),
-        },
-    );
+    let path = state.settings_path.clone();
+    let mut settings = state.settings.lock().unwrap();
+    settings.body_weight = weight;
+    settings.body_weight_source = "settings".into();
+    let snapshot = settings.clone();
+    drop(settings);
+    save_settings(&path, &snapshot)
 }
 
 #[tauri::command]
 fn get_user_name(state: State<'_, AppState>) -> String {
-    state.user_name.lock().unwrap().clone()
+    state.settings.lock().unwrap().user_name.clone()
 }
 
 #[tauri::command]
-fn set_user_name(state: State<'_, AppState>, name: String) {
-    *state.user_name.lock().unwrap() = name.clone();
-    let path = state.data_path.parent().unwrap().join("settings.json");
-    let weight = *state.body_weight.lock().unwrap();
-    let weight_source = state.body_weight_source.lock().unwrap().clone();
-    save_settings(
-        &path,
-        &Settings {
-            body_weight: weight,
-            user_name: name,
-            body_weight_source: weight_source,
-        },
-    );
+fn set_user_name(state: State<'_, AppState>, name: String) -> Result<(), String> {
+    let path = state.settings_path.clone();
+    let mut settings = state.settings.lock().unwrap();
+    settings.user_name = name;
+    let snapshot = settings.clone();
+    drop(settings);
+    save_settings(&path, &snapshot)
 }
 
 #[tauri::command]
@@ -812,7 +865,7 @@ fn get_personal_records(state: State<'_, AppState>) -> Vec<PersonalRecord> {
     for (eid, entries) in by_exercise {
         let best = entries
             .iter()
-            .max_by(|a, b| a.weight_kg.partial_cmp(&b.weight_kg).unwrap())
+            .max_by(|a, b| a.weight_kg.total_cmp(&b.weight_kg))
             .unwrap();
         let max_vol = entries
             .iter()
@@ -829,24 +882,18 @@ fn get_personal_records(state: State<'_, AppState>) -> Vec<PersonalRecord> {
         });
     }
 
-    records.sort_by(|a, b| b.max_weight.partial_cmp(&a.max_weight).unwrap());
+    records.sort_by(|a, b| b.max_weight.total_cmp(&a.max_weight));
     records
 }
 
 // ─── Workout Templates ───
 
-fn load_templates(path: &Path) -> Vec<WorkoutTemplate> {
-    if let Ok(data) = fs::read_to_string(path) {
-        serde_json::from_str(&data).unwrap_or_default()
-    } else {
-        vec![]
-    }
+fn load_templates(path: &Path) -> Result<Vec<WorkoutTemplate>, String> {
+    load_json_or_quarantine(path, Vec::new())
 }
 
-fn save_templates(path: &Path, templates: &[WorkoutTemplate]) {
-    if let Ok(data) = serde_json::to_string_pretty(templates) {
-        let _ = fs::write(path, data);
-    }
+fn save_templates(path: &Path, templates: &[WorkoutTemplate]) -> Result<(), String> {
+    save_json_atomic(path, templates)
 }
 
 #[tauri::command]
@@ -862,68 +909,96 @@ fn save_template(
     sets_list: Vec<i32>,
     reps_list: Vec<i32>,
     weights: Vec<f64>,
-) -> WorkoutTemplate {
+) -> Result<WorkoutTemplate, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("template name cannot be empty".into());
+    }
+    if name.chars().count() > 100 {
+        return Err("template name must be at most 100 characters".into());
+    }
+    if exercise_ids.is_empty() {
+        return Err("template needs at least one exercise".into());
+    }
+    if sets_list.len() != exercise_ids.len()
+        || reps_list.len() != exercise_ids.len()
+        || weights.len() != exercise_ids.len()
+    {
+        return Err("sets/reps/weights lists must match the exercise list".into());
+    }
+
     let exercises_db = get_exercise_db();
     let exercises: Vec<TemplateExercise> = exercise_ids
         .iter()
         .enumerate()
         .map(|(i, eid)| {
-            let ex = exercises_db.iter().find(|e| e.id == *eid);
-            TemplateExercise {
-                exercise_id: eid.clone(),
-                exercise_name: ex.map(|e| e.name_vi.clone()).unwrap_or_default(),
-                sets: sets_list.get(i).copied().unwrap_or(3),
-                reps: reps_list.get(i).copied().unwrap_or(10),
-                weight_kg: weights.get(i).copied().unwrap_or(0.0),
-            }
+            let ex = exercises_db
+                .iter()
+                .find(|e| e.id == *eid)
+                .ok_or_else(|| format!("unknown exercise id: {eid}"))?;
+            Ok(TemplateExercise {
+                exercise_id: ex.id.clone(),
+                exercise_name: ex.name_vi.clone(),
+                sets: validate_sets(sets_list[i]),
+                reps: validate_reps(reps_list[i]),
+                weight_kg: validate_weight(weights[i]),
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, String>>()?;
 
     let template = WorkoutTemplate {
         id: uuid::Uuid::new_v4().to_string(),
-        name,
+        name: name.to_string(),
         exercises,
         created_at: Utc::now(),
     };
 
+    let path = state.templates_path.clone();
     let mut templates = state.templates.lock().unwrap();
     templates.push(template.clone());
-    let path = state.data_path.parent().unwrap().join("templates.json");
-    save_templates(&path, &templates);
-    template
+    let snapshot = templates.clone();
+    drop(templates);
+    save_templates(&path, &snapshot)?;
+    Ok(template)
 }
 
 #[tauri::command]
-fn delete_template(state: State<'_, AppState>, id: String) -> bool {
+fn delete_template(state: State<'_, AppState>, id: String) -> Result<bool, String> {
+    let path = state.templates_path.clone();
     let mut templates = state.templates.lock().unwrap();
     let len_before = templates.len();
     templates.retain(|t| t.id != id);
     let changed = templates.len() < len_before;
+    let snapshot = templates.clone();
+    drop(templates);
     if changed {
-        let path = state.data_path.parent().unwrap().join("templates.json");
-        save_templates(&path, &templates);
+        save_templates(&path, &snapshot)?;
     }
-    changed
+    Ok(changed)
 }
 
 #[tauri::command]
-fn relog_from_template(state: State<'_, AppState>, template_id: String) -> Vec<WorkoutEntry> {
-    let templates = state.templates.lock().unwrap();
-    let template = match templates.iter().find(|t| t.id == template_id) {
-        Some(t) => t.clone(),
-        None => return vec![],
+fn relog_from_template(state: State<'_, AppState>, template_id: String) -> Result<Vec<WorkoutEntry>, String> {
+    let template = {
+        let templates = state.templates.lock().unwrap();
+        match templates.iter().find(|t| t.id == template_id) {
+            Some(t) => t.clone(),
+            None => return Ok(vec![]),
+        }
     };
-    drop(templates);
 
-    let weight = *state.body_weight.lock().unwrap();
+    let weight = state.settings.lock().unwrap().body_weight;
     let mut new_entries = Vec::new();
 
     for ex in &template.exercises {
+        // Reject unknown exercise ids instead of logging a blank-named entry;
+        // record the real MET rather than a hardcoded 6.0.
+        let exercise = find_exercise_checked(&ex.exercise_id)?;
         let calories = calculate_calories(&ex.exercise_id, weight, ex.sets, ex.reps, 0.0);
         let entry = WorkoutEntry {
             id: uuid::Uuid::new_v4().to_string(),
             exercise_id: ex.exercise_id.clone(),
-            exercise_name: ex.exercise_name.clone(),
+            exercise_name: exercise.name_vi.clone(),
             sets: ex.sets,
             reps: ex.reps,
             weight_kg: ex.weight_kg,
@@ -931,7 +1006,7 @@ fn relog_from_template(state: State<'_, AppState>, template_id: String) -> Vec<W
             duration_minutes: 0.0,
             date: Utc::now(),
             calories_burned: calories,
-            met_value: 6.0,
+            met_value: exercise.met,
             notes: None,
         };
         new_entries.push(entry);
@@ -939,45 +1014,41 @@ fn relog_from_template(state: State<'_, AppState>, template_id: String) -> Vec<W
 
     let mut workouts = state.workouts.lock().unwrap();
     workouts.extend(new_entries.clone());
-    save_workouts(&state.data_path, &workouts);
-    new_entries
+    save_workouts(&state.data_path, &workouts)?;
+    Ok(new_entries)
 }
 
 // ─── Body Weight Log ───
 
-fn load_body_weight_log(path: &Path) -> Vec<BodyWeightEntry> {
-    if let Ok(data) = fs::read_to_string(path) {
-        serde_json::from_str(&data).unwrap_or_default()
-    } else {
-        vec![]
-    }
+fn load_body_weight_log(path: &Path) -> Result<Vec<BodyWeightEntry>, String> {
+    load_json_or_quarantine(path, Vec::new())
 }
 
-fn save_body_weight_log(path: &Path, log: &[BodyWeightEntry]) {
-    if let Ok(data) = serde_json::to_string_pretty(log) {
-        let _ = fs::write(path, data);
-    }
+fn save_body_weight_log(path: &Path, log: &[BodyWeightEntry]) -> Result<(), String> {
+    save_json_atomic(path, log)
 }
 
 #[tauri::command]
-fn log_body_weight(state: State<'_, AppState>, weight: f64) -> BodyWeightEntry {
+fn log_body_weight(state: State<'_, AppState>, weight: f64) -> Result<BodyWeightEntry, String> {
+    // IPC boundary: same validation as set_body_weight so NaN/Inf/absurd
+    // values can never poison body_weight_log.json.
+    let weight = validate_body_weight(weight);
     let entry = BodyWeightEntry {
         date: Utc::now(),
         weight,
     };
+    let path = state.bw_log_path.clone();
     let mut log = state.body_weight_log.lock().unwrap();
     log.push(entry.clone());
-    let path = state
-        .data_path
-        .parent()
-        .unwrap()
-        .join("body_weight_log.json");
-    save_body_weight_log(&path, &log);
-    entry
+    let snapshot = log.clone();
+    drop(log);
+    save_body_weight_log(&path, &snapshot)?;
+    Ok(entry)
 }
 
 #[tauri::command]
 fn get_body_weight_history(state: State<'_, AppState>, days: i32) -> Vec<BodyWeightEntry> {
+    let days = days.clamp(1, 3650);
     let log = state.body_weight_log.lock().unwrap();
     let cutoff = Utc::now() - chrono::Duration::days(days as i64);
     let mut entries: Vec<BodyWeightEntry> =
@@ -1008,12 +1079,16 @@ fn get_exercise_progress(state: State<'_, AppState>, exercise_id: String) -> Vec
 // ─── Quick Re-log ───
 
 #[tauri::command]
-fn quick_relog(state: State<'_, AppState>, workout_id: String) -> Option<WorkoutEntry> {
-    let workouts = state.workouts.lock().unwrap();
-    let original = workouts.iter().find(|w| w.id == workout_id)?.clone();
-    drop(workouts);
+fn quick_relog(state: State<'_, AppState>, workout_id: String) -> Result<Option<WorkoutEntry>, String> {
+    let original = {
+        let workouts = state.workouts.lock().unwrap();
+        match workouts.iter().find(|w| w.id == workout_id) {
+            Some(w) => w.clone(),
+            None => return Ok(None),
+        }
+    };
 
-    let weight = *state.body_weight.lock().unwrap();
+    let weight = state.settings.lock().unwrap().body_weight;
     let calories = calculate_calories(
         &original.exercise_id,
         weight,
@@ -1039,8 +1114,8 @@ fn quick_relog(state: State<'_, AppState>, workout_id: String) -> Option<Workout
 
     let mut workouts = state.workouts.lock().unwrap();
     workouts.push(new_entry.clone());
-    save_workouts(&state.data_path, &workouts);
-    Some(new_entry)
+    save_workouts(&state.data_path, &workouts)?;
+    Ok(Some(new_entry))
 }
 
 // ─── Main ───

@@ -33,6 +33,9 @@ const CONFIDENCE_METHOD = "uncalibrated_coverage_score_v1";
 const CALORIE_METHOD = "MET × body_weight_kg × active_duration_hours";
 const CALORIE_SOURCE = "ACSM Compendium 2024";
 const POSE_MODEL_SHA256 = "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a";
+
+// Stick figure overlay instance
+let stickOverlay = null;
 const OCR_MODEL_SHA256 = "ed350f3752f81ee8f38769edc14d92d997dababe23b565c59879372cc46a2468";
 const PROFILE_MODEL_SHA256 = "a4bbc0c62c83846c9a29db5ea602f859dbe466a305d5e0a1dd8704fde8dbcc5f";
 const DURATION_BASED_CATEGORIES = new Set(["cardio", "flexibility"]);
@@ -460,6 +463,12 @@ async function analyzeVideo() {
     const analyzeButton = byId("btn-analyze-video");
     if (!selectedFile || !video || !Number.isFinite(video.duration) || video.duration <= 0) return;
 
+    // Khởi tạo stick figure overlay
+    if (!stickOverlay) {
+        stickOverlay = new StickFigureOverlay();
+        stickOverlay.init(video);
+    }
+
     analyzeButton.disabled = true;
     byId("btn-save-analysis").disabled = true;
     byId("analysis-results").hidden = true;
@@ -507,6 +516,12 @@ async function analyzeVideo() {
             const landmarks = result.landmarks?.[0];
             const features = landmarks ? extractFeatures(landmarks) : null;
             if (features) samples.push({ time, ...features });
+            
+            // Render stick figure overlay
+            if (stickOverlay && landmarks) {
+                stickOverlay.render(landmarks);
+            }
+            
             setProgress((index + 1) / sampleCount, `Đang đọc frame ${index + 1}/${sampleCount}...`);
             await new Promise((resolve) => setTimeout(resolve, 0));
         }

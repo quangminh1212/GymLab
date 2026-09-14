@@ -1,0 +1,1502 @@
+[
+  {
+    "exercise": "squat",
+    "variant": "v1",
+    "predicted": "squat",
+    "score": 0.7432,
+    "margin": 0.2274,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 11.200000000000001,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "squat=0.743",
+      "deadlift=0.516",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "squat",
+    "variant": "v2",
+    "predicted": "squat",
+    "score": 0.7246,
+    "margin": 0.1993,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.799999999999994,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "squat=0.725",
+      "deadlift=0.525",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "squat",
+    "variant": "v3",
+    "predicted": "squat",
+    "score": 0.7148,
+    "margin": 0.1894,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 38.79999999999999,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "squat=0.715",
+      "deadlift=0.525",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "push_up",
+    "variant": "v1",
+    "predicted": "push_up",
+    "score": 1,
+    "margin": 0.6048,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 10.4,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "push_up=1.000",
+      "plank=0.395",
+      "barbell_row=0.342"
+    ]
+  },
+  {
+    "exercise": "push_up",
+    "variant": "v2",
+    "predicted": "push_up",
+    "score": 1,
+    "margin": 0.6092,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.599999999999998,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "push_up=1.000",
+      "plank=0.391",
+      "barbell_row=0.348"
+    ]
+  },
+  {
+    "exercise": "push_up",
+    "variant": "v3",
+    "predicted": "push_up",
+    "score": 1,
+    "margin": 0.6119,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 38.19999999999998,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "push_up=1.000",
+      "plank=0.388",
+      "barbell_row=0.350"
+    ]
+  },
+  {
+    "exercise": "bicep_curl",
+    "variant": "v1",
+    "predicted": "bicep_curl",
+    "score": 0.8133,
+    "margin": 0.2204,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 11.4,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "bicep_curl=0.813",
+      "pull_up=0.593",
+      "tricep_dip=0.550"
+    ]
+  },
+  {
+    "exercise": "bicep_curl",
+    "variant": "v2",
+    "predicted": "bicep_curl",
+    "score": 0.8017,
+    "margin": 0.1928,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.400000000000002,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "bicep_curl=0.802",
+      "pull_up=0.609",
+      "tricep_dip=0.550"
+    ]
+  },
+  {
+    "exercise": "bicep_curl",
+    "variant": "v3",
+    "predicted": "bicep_curl",
+    "score": 0.8039,
+    "margin": 0.1941,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 40.2,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "bicep_curl=0.804",
+      "pull_up=0.610",
+      "tricep_dip=0.550"
+    ]
+  },
+  {
+    "exercise": "overhead_press",
+    "variant": "v1",
+    "predicted": "overhead_press",
+    "score": 0.8952,
+    "margin": 0.2298,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 5,
+    "active_duration": 11,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "wrist_height",
+    "top3": [
+      "overhead_press=0.895",
+      "pull_up=0.665",
+      "bicep_curl=0.474"
+    ]
+  },
+  {
+    "exercise": "overhead_press",
+    "variant": "v2",
+    "predicted": "overhead_press",
+    "score": 0.9107,
+    "margin": 0.1836,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 8,
+    "active_duration": 22,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "wrist_height",
+    "top3": [
+      "overhead_press=0.911",
+      "pull_up=0.727",
+      "bicep_curl=0.504"
+    ]
+  },
+  {
+    "exercise": "overhead_press",
+    "variant": "v3",
+    "predicted": "overhead_press",
+    "score": 0.9185,
+    "margin": 0.1811,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 12,
+    "active_duration": 40,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "wrist_height",
+    "top3": [
+      "overhead_press=0.919",
+      "pull_up=0.737",
+      "bicep_curl=0.504"
+    ]
+  },
+  {
+    "exercise": "deadlift",
+    "variant": "v1",
+    "predicted": "deadlift",
+    "score": 0.7448,
+    "margin": 0.3098,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 10.4,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "hip_angle",
+    "top3": [
+      "deadlift=0.745",
+      "squat=0.435",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "deadlift",
+    "variant": "v2",
+    "predicted": "deadlift",
+    "score": 0.7336,
+    "margin": 0.2912,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.399999999999995,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "hip_angle",
+    "top3": [
+      "deadlift=0.734",
+      "squat=0.442",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "deadlift",
+    "variant": "v3",
+    "predicted": "deadlift",
+    "score": 0.7223,
+    "margin": 0.2691,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 39.39999999999999,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "hip_angle",
+    "top3": [
+      "deadlift=0.722",
+      "squat=0.453",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "barbell_row",
+    "variant": "v1",
+    "predicted": "barbell_row",
+    "score": 0.4035,
+    "margin": 0.126,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 11.399999999999999,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "barbell_row=0.404",
+      "push_up=0.277",
+      "bicep_curl=0.267"
+    ]
+  },
+  {
+    "exercise": "barbell_row",
+    "variant": "v2",
+    "predicted": "barbell_row",
+    "score": 0.4154,
+    "margin": 0.1167,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 22.199999999999996,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "barbell_row=0.415",
+      "push_up=0.299",
+      "bicep_curl=0.257"
+    ]
+  },
+  {
+    "exercise": "barbell_row",
+    "variant": "v3",
+    "predicted": "barbell_row",
+    "score": 0.4191,
+    "margin": 0.1477,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 40.2,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "barbell_row=0.419",
+      "bicep_curl=0.271",
+      "push_up=0.248"
+    ]
+  },
+  {
+    "exercise": "pull_up",
+    "variant": "v1",
+    "predicted": "pull_up",
+    "score": 0.8183,
+    "margin": 0.1683,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 11.200000000000001,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "pull_up=0.818",
+      "bicep_curl=0.650",
+      "tricep_dip=0.550"
+    ]
+  },
+  {
+    "exercise": "pull_up",
+    "variant": "v2",
+    "predicted": "pull_up",
+    "score": 0.8074,
+    "margin": 0.1516,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "pull_up=0.807",
+      "bicep_curl=0.656",
+      "tricep_dip=0.550"
+    ]
+  },
+  {
+    "exercise": "pull_up",
+    "variant": "v3",
+    "predicted": "pull_up",
+    "score": 0.8203,
+    "margin": 0.1638,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 39.800000000000004,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "pull_up=0.820",
+      "bicep_curl=0.656",
+      "tricep_dip=0.550"
+    ]
+  },
+  {
+    "exercise": "tricep_dip",
+    "variant": "v1",
+    "predicted": "tricep_dip",
+    "score": 1,
+    "margin": 0.6619,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 11.200000000000001,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "tricep_dip=1.000",
+      "pull_up=0.338",
+      "bicep_curl=0.300"
+    ]
+  },
+  {
+    "exercise": "tricep_dip",
+    "variant": "v2",
+    "predicted": "tricep_dip",
+    "score": 1,
+    "margin": 0.6601,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 22.199999999999996,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "tricep_dip=1.000",
+      "pull_up=0.340",
+      "bicep_curl=0.300"
+    ]
+  },
+  {
+    "exercise": "tricep_dip",
+    "variant": "v3",
+    "predicted": "tricep_dip",
+    "score": 1,
+    "margin": 0.6592,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 40.6,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "tricep_dip=1.000",
+      "pull_up=0.341",
+      "bicep_curl=0.300"
+    ]
+  },
+  {
+    "exercise": "lateral_raise",
+    "variant": "v1",
+    "predicted": "lateral_raise",
+    "score": 0.9365,
+    "margin": 0.744,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 5,
+    "active_duration": 11.8,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "wrist_span",
+    "top3": [
+      "lateral_raise=0.936",
+      "overhead_press=0.192",
+      "squat=0.000"
+    ]
+  },
+  {
+    "exercise": "lateral_raise",
+    "variant": "v2",
+    "predicted": "lateral_raise",
+    "score": 0.9806,
+    "margin": 0.7866,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 8,
+    "active_duration": 22.599999999999994,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "wrist_span",
+    "top3": [
+      "lateral_raise=0.981",
+      "overhead_press=0.194",
+      "squat=0.000"
+    ]
+  },
+  {
+    "exercise": "lateral_raise",
+    "variant": "v3",
+    "predicted": "lateral_raise",
+    "score": 1,
+    "margin": 0.8046,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 12,
+    "active_duration": 40,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "wrist_span",
+    "top3": [
+      "lateral_raise=1.000",
+      "overhead_press=0.195",
+      "squat=0.000"
+    ]
+  },
+  {
+    "exercise": "calf_raise",
+    "variant": "v1",
+    "predicted": "calf_raise",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 11.8,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "ankle_angle",
+    "top3": [
+      "calf_raise=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "calf_raise",
+    "variant": "v2",
+    "predicted": "calf_raise",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 19,
+    "gt_reps": 8,
+    "gt_duration": 19.2,
+    "duration_only": false,
+    "signal": "ankle_angle",
+    "top3": [
+      "calf_raise=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "calf_raise",
+    "variant": "v3",
+    "predicted": "calf_raise",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 28.6,
+    "gt_reps": 12,
+    "gt_duration": 28.8,
+    "duration_only": false,
+    "signal": "ankle_angle",
+    "top3": [
+      "calf_raise=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "plank",
+    "variant": "v1",
+    "predicted": "plank",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": null,
+    "reps_high": null,
+    "active_duration": 24.599999999999998,
+    "gt_reps": 0,
+    "gt_duration": 30,
+    "duration_only": true,
+    "signal": null,
+    "top3": [
+      "plank=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "plank",
+    "variant": "v2",
+    "predicted": "plank",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": null,
+    "reps_high": null,
+    "active_duration": 21.000000000000007,
+    "gt_reps": 0,
+    "gt_duration": 30,
+    "duration_only": true,
+    "signal": null,
+    "top3": [
+      "plank=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "plank",
+    "variant": "v3",
+    "predicted": "plank",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": null,
+    "reps_high": null,
+    "active_duration": 21.80000000000001,
+    "gt_reps": 0,
+    "gt_duration": 30,
+    "duration_only": true,
+    "signal": null,
+    "top3": [
+      "plank=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "mountain_climbers",
+    "variant": "v1",
+    "predicted": "mountain_climbers",
+    "score": 0.7594,
+    "margin": 0.3767,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 5,
+    "active_duration": 10.8,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "mountain_climbers=0.759",
+      "plank=0.383",
+      "squat=0.189"
+    ]
+  },
+  {
+    "exercise": "mountain_climbers",
+    "variant": "v2",
+    "predicted": "mountain_climbers",
+    "score": 0.7738,
+    "margin": 0.3958,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.599999999999994,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "mountain_climbers=0.774",
+      "plank=0.378",
+      "squat=0.187"
+    ]
+  },
+  {
+    "exercise": "mountain_climbers",
+    "variant": "v3",
+    "predicted": "mountain_climbers",
+    "score": 0.7864,
+    "margin": 0.4114,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 12,
+    "active_duration": 38.19999999999999,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "mountain_climbers=0.786",
+      "plank=0.375",
+      "deadlift=0.191"
+    ]
+  },
+  {
+    "exercise": "burpees",
+    "variant": "v1",
+    "predicted": "burpees",
+    "score": 0.8467,
+    "margin": 0.1398,
+    "accepted": true,
+    "reps_low": 5,
+    "reps_high": 4,
+    "active_duration": 11.8,
+    "gt_reps": 5,
+    "gt_duration": 12,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "burpees=0.847",
+      "barbell_row=0.707",
+      "push_up=0.603"
+    ]
+  },
+  {
+    "exercise": "burpees",
+    "variant": "v2",
+    "predicted": "burpees",
+    "score": 0.84,
+    "margin": 0.1333,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 7,
+    "active_duration": 23.8,
+    "gt_reps": 8,
+    "gt_duration": 24,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "burpees=0.840",
+      "barbell_row=0.707",
+      "push_up=0.603"
+    ]
+  },
+  {
+    "exercise": "burpees",
+    "variant": "v3",
+    "predicted": "burpees",
+    "score": 0.8333,
+    "margin": 0.1266,
+    "accepted": true,
+    "reps_low": 12,
+    "reps_high": 11,
+    "active_duration": 43,
+    "gt_reps": 12,
+    "gt_duration": 43.2,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "burpees=0.833",
+      "barbell_row=0.707",
+      "push_up=0.575"
+    ]
+  },
+  {
+    "exercise": "squat",
+    "variant": "noise",
+    "predicted": "squat",
+    "score": 0.7205,
+    "margin": 0.1967,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.6,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "squat=0.720",
+      "deadlift=0.524",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "squat",
+    "variant": "tempo",
+    "predicted": "squat",
+    "score": 0.7267,
+    "margin": 0.1917,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 24,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "squat=0.727",
+      "deadlift=0.535",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "squat",
+    "variant": "rest",
+    "predicted": "squat",
+    "score": 0.6555,
+    "margin": 0.1298,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 22.599999999999994,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "squat=0.655",
+      "deadlift=0.526",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "push_up",
+    "variant": "noise",
+    "predicted": "push_up",
+    "score": 1,
+    "margin": 0.6073,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.2,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "push_up=1.000",
+      "barbell_row=0.393",
+      "plank=0.386"
+    ]
+  },
+  {
+    "exercise": "push_up",
+    "variant": "tempo",
+    "predicted": "push_up",
+    "score": 1,
+    "margin": 0.6087,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 24.4,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "push_up=1.000",
+      "plank=0.391",
+      "barbell_row=0.341"
+    ]
+  },
+  {
+    "exercise": "push_up",
+    "variant": "rest",
+    "predicted": "push_up",
+    "score": 1,
+    "margin": 0.6241,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 22.199999999999996,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "push_up=1.000",
+      "plank=0.376",
+      "barbell_row=0.371"
+    ]
+  },
+  {
+    "exercise": "bicep_curl",
+    "variant": "noise",
+    "predicted": "bicep_curl",
+    "score": 0.7726,
+    "margin": 0.1219,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.6,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "bicep_curl=0.773",
+      "pull_up=0.651",
+      "tricep_dip=0.580"
+    ]
+  },
+  {
+    "exercise": "bicep_curl",
+    "variant": "tempo",
+    "predicted": "bicep_curl",
+    "score": 0.8556,
+    "margin": 0.3056,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 24,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "bicep_curl=0.856",
+      "tricep_dip=0.550",
+      "pull_up=0.536"
+    ]
+  },
+  {
+    "exercise": "bicep_curl",
+    "variant": "rest",
+    "predicted": "bicep_curl",
+    "score": 0.8324,
+    "margin": 0.2714,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 22.799999999999994,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "bicep_curl=0.832",
+      "pull_up=0.561",
+      "tricep_dip=0.556"
+    ]
+  },
+  {
+    "exercise": "overhead_press",
+    "variant": "noise",
+    "predicted": "unknown",
+    "score": 0.7719,
+    "margin": 0.0612,
+    "accepted": false,
+    "reps_low": 0,
+    "reps_high": 8,
+    "active_duration": 23.6,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "wrist_height",
+    "top3": [
+      "overhead_press=0.772",
+      "pull_up=0.711",
+      "bicep_curl=0.492"
+    ]
+  },
+  {
+    "exercise": "overhead_press",
+    "variant": "tempo",
+    "predicted": "overhead_press",
+    "score": 0.9146,
+    "margin": 0.216,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 6,
+    "active_duration": 23.8,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "wrist_height",
+    "top3": [
+      "overhead_press=0.915",
+      "pull_up=0.699",
+      "bicep_curl=0.482"
+    ]
+  },
+  {
+    "exercise": "overhead_press",
+    "variant": "rest",
+    "predicted": "unknown",
+    "score": 0.8387,
+    "margin": 0.0472,
+    "accepted": false,
+    "reps_low": 0,
+    "reps_high": 8,
+    "active_duration": 22.799999999999997,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "wrist_height",
+    "top3": [
+      "overhead_press=0.839",
+      "pull_up=0.792",
+      "bicep_curl=0.671"
+    ]
+  },
+  {
+    "exercise": "deadlift",
+    "variant": "noise",
+    "predicted": "deadlift",
+    "score": 0.7184,
+    "margin": 0.2547,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.8,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "hip_angle",
+    "top3": [
+      "deadlift=0.718",
+      "squat=0.464",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "deadlift",
+    "variant": "tempo",
+    "predicted": "deadlift",
+    "score": 0.7276,
+    "margin": 0.2736,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 24.400000000000002,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "hip_angle",
+    "top3": [
+      "deadlift=0.728",
+      "squat=0.454",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "deadlift",
+    "variant": "rest",
+    "predicted": "deadlift",
+    "score": 0.678,
+    "margin": 0.1473,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.399999999999995,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "hip_angle",
+    "top3": [
+      "deadlift=0.678",
+      "squat=0.531",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "barbell_row",
+    "variant": "noise",
+    "predicted": "unknown",
+    "score": 0.4342,
+    "margin": 0.0646,
+    "accepted": false,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 22.8,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "barbell_row=0.434",
+      "push_up=0.370",
+      "bicep_curl=0.232"
+    ]
+  },
+  {
+    "exercise": "barbell_row",
+    "variant": "tempo",
+    "predicted": "barbell_row",
+    "score": 0.4164,
+    "margin": 0.1269,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 24.400000000000002,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "barbell_row=0.416",
+      "bicep_curl=0.290",
+      "deadlift=0.198"
+    ]
+  },
+  {
+    "exercise": "barbell_row",
+    "variant": "rest",
+    "predicted": "barbell_row",
+    "score": 0.4628,
+    "margin": 0.1873,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.799999999999994,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "barbell_row=0.463",
+      "push_up=0.276",
+      "bicep_curl=0.252"
+    ]
+  },
+  {
+    "exercise": "pull_up",
+    "variant": "noise",
+    "predicted": "pull_up",
+    "score": 0.8516,
+    "margin": 0.1714,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.599999999999998,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "pull_up=0.852",
+      "bicep_curl=0.680",
+      "tricep_dip=0.549"
+    ]
+  },
+  {
+    "exercise": "pull_up",
+    "variant": "tempo",
+    "predicted": "pull_up",
+    "score": 0.8169,
+    "margin": 0.1558,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 24.4,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "pull_up=0.817",
+      "bicep_curl=0.661",
+      "tricep_dip=0.550"
+    ]
+  },
+  {
+    "exercise": "pull_up",
+    "variant": "rest",
+    "predicted": "pull_up",
+    "score": 0.8363,
+    "margin": 0.1839,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.199999999999992,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "pull_up=0.836",
+      "bicep_curl=0.652",
+      "tricep_dip=0.550"
+    ]
+  },
+  {
+    "exercise": "tricep_dip",
+    "variant": "noise",
+    "predicted": "tricep_dip",
+    "score": 1,
+    "margin": 0.6039,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.400000000000002,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "tricep_dip=1.000",
+      "pull_up=0.396",
+      "bicep_curl=0.300"
+    ]
+  },
+  {
+    "exercise": "tricep_dip",
+    "variant": "tempo",
+    "predicted": "tricep_dip",
+    "score": 1,
+    "margin": 0.6628,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 24.599999999999998,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "tricep_dip=1.000",
+      "pull_up=0.337",
+      "bicep_curl=0.300"
+    ]
+  },
+  {
+    "exercise": "tricep_dip",
+    "variant": "rest",
+    "predicted": "tricep_dip",
+    "score": 1,
+    "margin": 0.6597,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 22.599999999999994,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "elbow_angle",
+    "top3": [
+      "tricep_dip=1.000",
+      "pull_up=0.340",
+      "bicep_curl=0.300"
+    ]
+  },
+  {
+    "exercise": "lateral_raise",
+    "variant": "noise",
+    "predicted": "lateral_raise",
+    "score": 1,
+    "margin": 0.806,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 8,
+    "active_duration": 23.6,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "wrist_span",
+    "top3": [
+      "lateral_raise=1.000",
+      "overhead_press=0.194",
+      "squat=0.000"
+    ]
+  },
+  {
+    "exercise": "lateral_raise",
+    "variant": "tempo",
+    "predicted": "lateral_raise",
+    "score": 0.9718,
+    "margin": 0.7789,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 6,
+    "active_duration": 24.6,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "wrist_span",
+    "top3": [
+      "lateral_raise=0.972",
+      "overhead_press=0.193",
+      "squat=0.000"
+    ]
+  },
+  {
+    "exercise": "lateral_raise",
+    "variant": "rest",
+    "predicted": "lateral_raise",
+    "score": 1,
+    "margin": 0.8223,
+    "accepted": true,
+    "reps_low": 0,
+    "reps_high": 8,
+    "active_duration": 23.199999999999992,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "wrist_span",
+    "top3": [
+      "lateral_raise=1.000",
+      "overhead_press=0.178",
+      "squat=0.000"
+    ]
+  },
+  {
+    "exercise": "calf_raise",
+    "variant": "noise",
+    "predicted": "calf_raise",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.199999999999992,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "ankle_angle",
+    "top3": [
+      "calf_raise=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "calf_raise",
+    "variant": "tempo",
+    "predicted": "calf_raise",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 16.400000000000002,
+    "gt_reps": 6,
+    "gt_duration": 16.6,
+    "duration_only": false,
+    "signal": "ankle_angle",
+    "top3": [
+      "calf_raise=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "calf_raise",
+    "variant": "rest",
+    "predicted": "calf_raise",
+    "score": 1,
+    "margin": 1,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.999999999999996,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "ankle_angle",
+    "top3": [
+      "calf_raise=1.000",
+      "squat=0.000",
+      "push_up=0.000"
+    ]
+  },
+  {
+    "exercise": "mountain_climbers",
+    "variant": "noise",
+    "predicted": "mountain_climbers",
+    "score": 0.7916,
+    "margin": 0.4158,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 23.4,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "mountain_climbers=0.792",
+      "plank=0.376",
+      "deadlift=0.196"
+    ]
+  },
+  {
+    "exercise": "mountain_climbers",
+    "variant": "tempo",
+    "predicted": "mountain_climbers",
+    "score": 0.7807,
+    "margin": 0.402,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 6,
+    "active_duration": 24.2,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "mountain_climbers=0.781",
+      "plank=0.379",
+      "deadlift=0.187"
+    ]
+  },
+  {
+    "exercise": "mountain_climbers",
+    "variant": "rest",
+    "predicted": "mountain_climbers",
+    "score": 0.8238,
+    "margin": 0.4617,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 8,
+    "active_duration": 21.999999999999993,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "mountain_climbers=0.824",
+      "plank=0.362",
+      "deadlift=0.221"
+    ]
+  },
+  {
+    "exercise": "burpees",
+    "variant": "noise",
+    "predicted": "burpees",
+    "score": 0.8367,
+    "margin": 0.1298,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 7,
+    "active_duration": 23.8,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "burpees=0.837",
+      "barbell_row=0.707",
+      "push_up=0.603"
+    ]
+  },
+  {
+    "exercise": "burpees",
+    "variant": "tempo",
+    "predicted": "burpees",
+    "score": 0.8317,
+    "margin": 0.1249,
+    "accepted": true,
+    "reps_low": 6,
+    "reps_high": 5,
+    "active_duration": 25,
+    "gt_reps": 6,
+    "gt_duration": 25,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "burpees=0.832",
+      "barbell_row=0.707",
+      "push_up=0.568"
+    ]
+  },
+  {
+    "exercise": "burpees",
+    "variant": "rest",
+    "predicted": "burpees",
+    "score": 0.8711,
+    "margin": 0.2434,
+    "accepted": true,
+    "reps_low": 8,
+    "reps_high": 7,
+    "active_duration": 24,
+    "gt_reps": 8,
+    "gt_duration": 23.8,
+    "duration_only": false,
+    "signal": "knee_angle",
+    "top3": [
+      "burpees=0.871",
+      "barbell_row=0.628",
+      "push_up=0.509"
+    ]
+  }
+]
